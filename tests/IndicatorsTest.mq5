@@ -107,9 +107,9 @@ void OnTick() {
       IndicatorDataEntry _entry = _indi.GetEntry();
       if (_indi.GetState().IsReady() && _entry.IsValid()) {
         PrintFormat("%s: bar %d: %s", _indi.GetName(), bar_processed, _indi.ToString());
-        tested.Set(iter.Key(), true); // Mark as tested.
-        _indi.ReleaseHandle(); // Releases indicator's handle.
-        indis.Unset(iter.Key()); // Remove from the collection.
+        //tested.Set(iter.Key(), true); // Mark as tested.
+        //_indi.ReleaseHandle(); // Releases indicator's handle.
+        //indis.Unset(iter.Key()); // Remove from the collection.
       }
     }
   }
@@ -305,9 +305,19 @@ bool InitIndicators() {
   bands_params_on_price.indi_data = indi_price;
   indis.Set(INDI_BANDS_ON_PRICE, new Indi_Bands(bands_params_on_price));
 
+  // Envelopes over Price indicator.
+  PriceIndiParams price_params_env_on_price(PRICE_MEDIAN);
+  Indicator* indi_price_for_env = new Indi_Price(price_params_env_on_price);
+  EnvelopesParams env_on_price_params(13, 0, MODE_SMA, PRICE_CLOSE, 2);
+  env_on_price_params.SetIndicatorData(indi_price_for_env);
+  indis.Set(INDI_ENVELOPES_ON_PRICE, new Indi_Envelopes(env_on_price_params));
+
   // Mark all as untested.
   for (DictIterator<long, Indicator*> iter = indis.Begin(); iter.IsValid(); ++iter) {
-    tested.Set(iter.Key(), false);
+    if (iter.Key() != INDI_PRICE && iter.Key() != INDI_ENVELOPES && iter.Key() != INDI_ENVELOPES_ON_PRICE)
+      indis.Unset(iter.Key());
+    else
+      tested.Set(iter.Key(), false);
   }
   return GetLastError() == ERR_NO_ERROR;
 }

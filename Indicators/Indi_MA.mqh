@@ -151,6 +151,38 @@ class Indi_MA : public Indicator {
     _param.double_value = GetEntry(_shift).value.GetValueDbl(params.idvtype, _mode);
     return _param;
   }
+  
+  static int ExponentialMAOnBuffer(const int rates_total,const int prev_calculated,const int begin,
+                          const int period,const double& price[],double& buffer[])
+  {
+    int i,limit;
+    if(period<=1 || rates_total-begin<period) return(0);
+    double dSmoothFactor=2.0/(1.0+period);
+
+    bool as_series_price=ArrayGetAsSeries(price);
+    bool as_series_buffer=ArrayGetAsSeries(buffer);
+    if(as_series_price)  ArraySetAsSeries(price,false);
+    if(as_series_buffer) ArraySetAsSeries(buffer,false);
+    if(prev_calculated==0) {
+      limit=period+begin;
+      //--- set empty value for first bars
+      for(i=0;i<begin;i++) buffer[i]=0.0;
+      //--- calculate first visible value
+      buffer[begin]=price[begin];
+      for(i=begin+1;i<limit;i++)
+         buffer[i]=price[i]*dSmoothFactor+buffer[i-1]*(1.0-dSmoothFactor);
+    }
+    else
+      limit=prev_calculated-1;
+      
+    for(i=limit;i<rates_total;i++)
+      buffer[i]=price[i]*dSmoothFactor+buffer[i-1]*(1.0-dSmoothFactor);
+
+    if(as_series_price)  ArraySetAsSeries(price,true);
+    if(as_series_buffer) ArraySetAsSeries(buffer,true);
+
+    return(rates_total);
+  }
 
   /* Getters */
 
