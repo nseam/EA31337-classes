@@ -33,20 +33,6 @@ class Draw;
 
 #define WINDOW_MAIN 0
 
-#ifdef __MQL5__
-#define OBJPROP_TIME1 0
-#define OBJPROP_PRICE1 1
-#define OBJPROP_TIME2 2
-#define OBJPROP_PRICE2 3
-#define OBJPROP_TIME3 4
-#define OBJPROP_PRICE3 5
-#define OBJPROP_COLOR 6
-#define OBJPROP_STYLE 7
-#define OBJPROP_WIDTH 8
-#define OBJPROP_BACK 9
-#define OBJPROP_FIBOLEVELS 200
-#endif
-
 /**
  * Class to provide drawing methods working with graphic objects.
  */
