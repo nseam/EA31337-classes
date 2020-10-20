@@ -28,6 +28,7 @@
 #include "../Test.mqh"
 #include "../NeuralNetwork/Model.mqh"
 #include "../NeuralNetwork/Layers/Linear.mqh"
+#include "../NeuralNetwork/Layers/ReLU.mqh"
 #include "../Matrix.mqh"
 
 /**
@@ -42,29 +43,27 @@ int OnInit() {
   Model model;
   
   model.Add(new Linear(5, 2));
-//  model.Add(new Layer(new LayerActivationReLU()));
+  model.Add(new ReLU());
   model.Add(new Linear(2, 5));
   
-  model.layers[0].weight = Matrix<double>::Parse(
+  model.layers[0].Weight() = Matrix<double>::Parse(
     "["
-      "[0.5, 0.3, 1.0, 0.6, 0.1],"
-      "[0.2, 0.1, 0.4, 0.2, 0.2],"
+      "[0.5, -0.3, 1.0, 0.6, 0.1],"
+      "[0.2, 0.1, -40.4, 0.2, -0.2],"
     "]"
   );
 
-  model.layers[1].weight = Matrix<double>::Parse(
+  model.layers[2].Weight() = Matrix<double>::Parse(
     "["
-      "[0.5, 0.7],"
-      "[0.6, 0.1],"
-      "[0.1, 0.5],"
-      "[0.2, 0.3],"
+      "[-0.5, 0.7],"
+      "[-0.6, 0.1],"
+      "[-0.1, 0.5],"
+      "[-0.2, 0.3],"
       "[0.3, 0.6],"
     "]"
   );
   
-  
-  
-  model.layers[1].bias = Matrix<double>::Parse("[0.2, 0.4, 0.0, 0.1, 0.2]");
+  model.layers[2].Bias() = Matrix<double>::Parse("[0.2, -0.5, 0.0, -2.1, -10.2]");
 
   for (int i = 0; i < 1; ++i) {
     Matrix<double>* y_pred = model.Forward(&x);

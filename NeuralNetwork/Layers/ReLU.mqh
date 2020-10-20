@@ -20,52 +20,25 @@
  */
 
 // Prevents processing this includes file for the second time.
-#ifndef NEURAL_NETWORK_MODEL_MQH
-#define NEURAL_NETWORK_MODEL_MQH
+#ifndef NEURAL_NETWORK_LAYER_RELU_MQH
+#define NEURAL_NETWORK_LAYER_RELU_MQH
 
 // Includes.
-#include "Layer.mqh"
+#include "../../Math.mqh"
+#include "../Layer.mqh"
 
 /**
- * Neural network model.
+ * Neural network layer.
  */
-class Model {
- public:
-  ~Model() {
-    for (int i = 0; i < ArraySize(layers); ++i) delete layers[i];
-  }
+class ReLU : public Layer {
+  /**
+   * Transfers data between previous and this layer, taking weights into consideration.
+   */
+  virtual void Forward() {
+    Output() = Input();
 
-  Layer* layers[];
-
-  // Layer used as input.
-  Layer* input_layer;
-
-  void Add(Layer* layer) {
-    ArrayResize(layers, ArraySize(layers) + 1, 10);
-    layers[ArraySize(layers) - 1] = layer;
-  }
-
-  Matrix<double>* Forward(Matrix<double>* _input) {
-    // Evaluating layers.
-    for (int i = 0; i < ArraySize(layers); ++i) {
-      // Initializing inputs from previous layer's outputs.
-      if (i == 0)
-        layers[i].Input() = _input;
-      else
-        layers[i].Input() = layers[i - 1].Output();
-
-      layers[i].Forward();
-    }
-
-    return layers[ArraySize(layers) - 1].Output();
-  }
-
-  void Backward(double _loss) {
-    // Calculating gradients from last to first layer.
-    for (int i = ArraySize(layers) - 1; i >= 0; --i) {
-      layers[i].Backward()
-    }
+    for (int i = 0; i < Output().GetSize(); ++i) outputs[i] = Math::ReLU(outputs[i].Val());
   }
 };
 
-#endif  // NEURAL_NETWORK_MODEL_MQH
+#endif  // NEURAL_NETWORK_LAYER_RELU_MQH

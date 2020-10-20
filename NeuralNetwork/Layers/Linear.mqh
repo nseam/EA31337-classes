@@ -29,15 +29,52 @@
 /**
  * Neural network layer.
  */
-class Linear : public Layer
-{
-public:
+class Linear : public Layer {
+ protected:
+  // Output weights. Shape of (num_outputs, num_inputs).
+  Matrix<double> weight;
 
   bool biased;
 
-  Linear(int _num_inputs, int _num_outputs, bool _biased = true) : Layer(_num_inputs, _num_outputs)
-  {
+  // Biases.
+  Matrix<double> bias;
+
+  // Loss gradients.
+  Matrix<double> gradient;
+
+ public:
+  virtual Matrix<double>* Weight() { return &weight; }
+
+  virtual Matrix<double>* Bias() { return &bias; }
+
+  virtual Matrix<double>* Gradient() { return &gradient; }
+
+  Linear(int _num_inputs, int _num_outputs, bool _biased = true) {
     biased = _biased;
+    inputs.SetShape(_num_inputs);
+    outputs.SetShape(_num_outputs);
+    weight.SetShape(_num_outputs, _num_inputs);
+    bias.SetShape(_num_outputs);
+    gradient.SetShape(_num_outputs, _num_inputs);
+  }
+
+ protected:
+  /**
+   * Transfers data between previous and this layer, taking weights into consideration.
+   */
+  virtual void Forward() {
+    if (weight.GetSize() != Input().GetSize() * Output().GetSize()) {
+      Alert("Layer::Forward(): Weights and inputs/outputs mimatch!");
+      return;
+    }
+
+    for (int output_idx = 0; output_idx < Output().GetSize(); ++output_idx) {
+      outputs[output_idx] = 0;
+      for (int input_idx = 0; input_idx < Input().GetSize(); ++input_idx) {
+        outputs[output_idx] = outputs[output_idx].Val() + inputs[input_idx].Val() * weight[output_idx][input_idx].Val();
+      }
+      outputs[output_idx] = outputs[output_idx].Val() + bias[output_idx].Val();
+    }
   }
 };
 

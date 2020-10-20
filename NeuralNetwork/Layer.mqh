@@ -48,7 +48,7 @@
  *   Matrix<double>* loss = y_pred.MeanSquared(MATRIX_OPERATION_SUM, y);
  *
  *   model.Backward(loss);
- *   
+ *
  *   for (int k = 0; k < net.NumWeights(); ++k)
  *   {
  *     model.ShiftWeight(k, -learning_rate * model.WeightGradient(k));
@@ -59,81 +59,43 @@
  * }
  *
  */
-class Layer
-{
-public:
-
-  // Output data..
+class Layer {
+ protected:
+  // Input data.
   Matrix<double> inputs;
 
-  // Output data..
+  // Output data.
   Matrix<double> outputs;
-  
-  // Output weights. Shape of (num_outputs, num_inputs).
-  Matrix<double> weight;
-  
-  // Biases.
-  Matrix<double> bias;
-  
-  // Loss gradients.
-  Matrix<double> gradient;
-  
-  int num_inputs;
-  
-  int num_outputs;
-  
+
+ public:
   /**
    * Constructor.
    */
-  Layer(int _num_inputs, int _num_outputs) {
-    num_inputs = _num_inputs;
-    num_outputs = _num_outputs;
-    inputs.SetShape(_num_inputs);
-    outputs.SetShape(_num_outputs);
-    weight.SetShape(_num_outputs, _num_inputs);
-    bias.SetShape(_num_outputs);
-    gradient.SetShape(_num_outputs, _num_inputs);
+  Layer() {}
+
+  Matrix<double>* Input() { return &inputs; }
+
+  Matrix<double>* Output() { return &outputs; }
+
+  virtual Matrix<double>* Weight() {
+    Alert("Layer doesn't have weight!");
+    return NULL;
   }
-  
-  /**
-   * Returns number of inputs.
-   */
-  int NumInputs() {
-    return num_inputs;
+
+  virtual Matrix<double>* Bias() {
+    Alert("Layer doesn't have bias!");
+    return NULL;
   }
-  
-  /**
-   * Returns number of outputs.
-   */
-  int NumOutputs() {
-    return num_outputs;
+
+  virtual Matrix<double>* Gradient() {
+    Alert("Layer doesn't have gradient!");
+    return NULL;
   }
 
   /**
-   * Transfers data between previous and this layer, taking into consideration previous layer's output weights.
+   * Transfers data between previous and this layer, taking weights into consideration.
    */
-  virtual void Forward()
-  {
-    if (weight.GetSize() != num_inputs * num_outputs) {
-      Alert("Layer::Forward(): Weights and inputs/outputs mimatch!");
-      return;
-    }
-    
-    for (int output_idx = 0; output_idx < num_outputs; ++output_idx) {
-      outputs[output_idx] = 0;
-      for (int input_idx = 0; input_idx < num_inputs; ++input_idx) {
-        outputs[output_idx] = outputs[output_idx].Val() + inputs[input_idx].Val() * weight[output_idx][input_idx].Val();
-      }
-      outputs[output_idx] = outputs[output_idx].Val() + bias[output_idx].Val();
-    }
-
-    Print("Curr: ", outputs.ToString(true, 2));
-
-  }
-  
-  string Shape() {
-    return "(" + IntegerToString(inputs.GetSize()) + ", " + IntegerToString(inputs.GetSize()) + ", weights: " + IntegerToString(weight.GetSize()) + ")";
-  }
+  virtual void Forward() = 0;
 };
 
-#endif // NEURAL_NETWORK_LAYER_MQH
+#endif  // NEURAL_NETWORK_LAYER_MQH

@@ -94,6 +94,11 @@ class Math {
     MqlParam _args[] = {};
     return Math::Condition(_cond, _args);
   }
+  
+  template<typename X>
+  static X ReLU(X _value) {
+    return (X)MathMax(0, _value);
+  }
 
 };
 #endif // MATH_MQH
