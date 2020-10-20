@@ -63,20 +63,76 @@ class Layer
 {
 public:
 
-  Matrix<double> data;
-  Matrix<double> weights;
-  Matrix<double> biases;
+  // Output data..
+  Matrix<double> inputs;
+
+  // Output data..
+  Matrix<double> outputs;
   
-  Layer(int _num_inputs = 0) {
-    if (_num_inputs > 0) {
-      data.SetShape(_num_inputs);
-      weights.SetShape(_num_inputs);
-      biases.SetShape(_num_inputs);
-    }
+  // Output weights. Shape of (num_outputs, num_inputs).
+  Matrix<double> weight;
+  
+  // Biases.
+  Matrix<double> bias;
+  
+  // Loss gradients.
+  Matrix<double> gradient;
+  
+  int num_inputs;
+  
+  int num_outputs;
+  
+  /**
+   * Constructor.
+   */
+  Layer(int _num_inputs, int _num_outputs) {
+    num_inputs = _num_inputs;
+    num_outputs = _num_outputs;
+    inputs.SetShape(_num_inputs);
+    outputs.SetShape(_num_outputs);
+    weight.SetShape(_num_outputs, _num_inputs);
+    bias.SetShape(_num_outputs);
+    gradient.SetShape(_num_outputs, _num_inputs);
   }
   
-  int Size() {
-    return data.GetSize();
+  /**
+   * Returns number of inputs.
+   */
+  int NumInputs() {
+    return num_inputs;
+  }
+  
+  /**
+   * Returns number of outputs.
+   */
+  int NumOutputs() {
+    return num_outputs;
+  }
+
+  /**
+   * Transfers data between previous and this layer, taking into consideration previous layer's output weights.
+   */
+  virtual void Forward()
+  {
+    if (weight.GetSize() != num_inputs * num_outputs) {
+      Alert("Layer::Forward(): Weights and inputs/outputs mimatch!");
+      return;
+    }
+    
+    for (int output_idx = 0; output_idx < num_outputs; ++output_idx) {
+      outputs[output_idx] = 0;
+      for (int input_idx = 0; input_idx < num_inputs; ++input_idx) {
+        outputs[output_idx] = outputs[output_idx].Val() + inputs[input_idx].Val() * weight[output_idx][input_idx].Val();
+      }
+      outputs[output_idx] = outputs[output_idx].Val() + bias[output_idx].Val();
+    }
+
+    Print("Curr: ", outputs.ToString(true, 2));
+
+  }
+  
+  string Shape() {
+    return "(" + IntegerToString(inputs.GetSize()) + ", " + IntegerToString(inputs.GetSize()) + ", weights: " + IntegerToString(weight.GetSize()) + ")";
   }
 };
 

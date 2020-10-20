@@ -41,27 +41,48 @@ int OnInit() {
   
   Model model;
   
-  model.Add(new Linear(6, 2));
+  model.Add(new Linear(5, 2));
 //  model.Add(new Layer(new LayerActivationReLU()));
-  model.Add(new Linear(2, 6));
+  model.Add(new Linear(2, 5));
   
-  model.layers[0].weights.FillIdentity();
-  model.layers[2].weights.FillIdentity();
+  model.layers[0].weight = Matrix<double>::Parse(
+    "["
+      "[0.5, 0.3, 1.0, 0.6, 0.1],"
+      "[0.2, 0.1, 0.4, 0.2, 0.2],"
+    "]"
+  );
+
+  model.layers[1].weight = Matrix<double>::Parse(
+    "["
+      "[0.5, 0.7],"
+      "[0.6, 0.1],"
+      "[0.1, 0.5],"
+      "[0.2, 0.3],"
+      "[0.3, 0.6],"
+    "]"
+  );
   
-  for (int i = 0; i < 10; ++i) {
-    Matrix<double>* y_pred = model.Forward(&y);
+  
+  
+  model.layers[1].bias = Matrix<double>::Parse("[0.2, 0.4, 0.0, 0.1, 0.2]");
+
+  for (int i = 0; i < 1; ++i) {
+    Matrix<double>* y_pred = model.Forward(&x);
+    
+
+    Print("y      = ", y.ToString(true, 2));
+    Print("y_pred = ", y_pred.ToString(true, 2));
     
     double loss = y_pred.MeanSquared(MATRIX_OPERATION_SUM, &y);
+    
+    Print("Loss = ", loss);
   
     model.Backward(loss);
     
-    for (int k = 0; k < net.NumWeights(); ++k)
-    {
-      model.ShiftWeight(k, -learning_ratemodel.WeightGradient(k));
-    }
-  
-    delete y_pred;
-    delete loss;
+    //for (int k = 0; k < model.NumWeights(); ++k)
+    //{
+    //  model.ShiftWeight(k, -learning_ratemodel.WeightGradient(k));
+   // }
   }
   
   return INIT_SUCCEEDED;

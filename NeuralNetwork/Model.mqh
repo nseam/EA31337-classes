@@ -25,6 +25,7 @@
 
 // Includes.
 #include "Layer.mqh"
+#include "Layers/Input.mqh"
 
 /**
  * Neural network model.
@@ -40,16 +41,31 @@ public:
 
   Layer* layers[];
   
+  // Layer used as input.
+  Layer* input_layer;
+  
   void Add(Layer* layer) {
-    layers[ArraySize(layers)] = layer;
+    ArrayResize(layers, ArraySize(layers) + 1, 10);
+    layers[ArraySize(layers) - 1] = layer;
   }
   
-  Matrix<double>* Forward(Matrix<double>* _pred) {
-    return NULL;
+  Matrix<double>* Forward(Matrix<double>* _input) {
+    // Evaluating layers.
+    for (int i = 0; i < ArraySize(layers); ++i) {
+      // Initializing inputs from previous layer's outputs.
+      if (i == 0)
+        layers[i].inputs = _input;
+      else
+        layers[i].inputs = layers[i - 1].outputs;
+
+      layers[i].Forward();
+    }
+  
+    return &layers[ArraySize(layers) - 1].outputs;
   }
 
   void Backward(double _loss) {
-    return NULL;
+    
   }
 
 };

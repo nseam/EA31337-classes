@@ -35,13 +35,9 @@ public:
 
   bool biased;
 
-  Linear(int _num_inputs, int _num_outputs, bool _biased = true) : Layer(_num_inputs)
+  Linear(int _num_inputs, int _num_outputs, bool _biased = true) : Layer(_num_inputs, _num_outputs)
   {
     biased = _biased;
-  }
-  
-  void forward(Layer* _prev, Layer* _next)
-  {    
   }
 };
 
