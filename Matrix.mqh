@@ -139,6 +139,22 @@ struct MatrixDimensionAccessor {
    */
   ENUM_MATRIX_DIMENSION_TYPE Type() { return ptr_dimension.type; }
 
+#define MATRIX_ACCESSOR_OPERATOR(OP)                                                   \
+  void operator OP(X _value) {                                                         \
+    if (ptr_dimension.type != MATRIX_DIMENSION_TYPE_VALUES) {                          \
+      Print("Error: Trying to use matrix", ptr_matrix.Repr(),                          \
+            "'s value operator " #OP " in a dimension which doesn't contain values!"); \
+      return;                                                                          \
+    }                                                                                  \
+                                                                                       \
+    ptr_dimension.values[index] OP _value;                                             \
+  }
+
+  MATRIX_ACCESSOR_OPERATOR(+=)
+  MATRIX_ACCESSOR_OPERATOR(-=)
+  MATRIX_ACCESSOR_OPERATOR(*=)
+  MATRIX_ACCESSOR_OPERATOR(/=)
+
   /**
    * Assignment operator. Sets value for this dimensions.
    */
@@ -543,6 +559,28 @@ class MatrixDimension {
         break;
     }
   }
+  
+  static Matrix<X>* MatMul(Matrix<X>* a, Matrix<X>* b) {
+		const int n = a.GetRange(0);
+		const int m = a.GetRange(1);
+		
+		Matrix<X>* ab = new Matrix<X>(a.GetRange(0), a.GetRange(1));
+		
+		if (m != b.GetRange(0))
+		  Alert("Wrong dimensions!");
+		
+		const int p = b.GetRange(1);
+		
+		for (int i = 0; i < n; ++i) {
+			for (int j = 0; j < p; ++j) {
+				for (int k = 0; k < m; ++k) {
+					ab[i][j] += a[i][k].Val() * b[k][j].Val();
+				}
+			}
+		}
+		
+		return ab;
+  }
 
   /**
    * Performs operation between current matrix/tensor and another one of the same or lower level.
@@ -610,9 +648,7 @@ class Matrix {
   /**
    * Constructor.
    */
-  Matrix(string _data) {
-    this = Parse(_data);
-  }
+  Matrix(string _data) { this = Parse(_data); }
 
   /**
    * Constructor.
@@ -625,17 +661,14 @@ class Matrix {
   /**
    * Constructor.
    */
-  Matrix(MatrixDimension<X>* _dimension) {
-    Initialize(_dimension);
-  }
+  Matrix(MatrixDimension<X>* _dimension) { Initialize(_dimension); }
 
   /**
    * Matrix initializer.
    */
   void Initialize(MatrixDimension<X>* _dimension) {
-    if (ptr_first_dimension != NULL)
-      delete ptr_first_dimension;
-      
+    if (ptr_first_dimension != NULL) delete ptr_first_dimension;
+
     ptr_first_dimension = _dimension;
     // Calculating dimensions.
     int i;
@@ -661,9 +694,9 @@ class Matrix {
     num_dimensions = i;
 
     // Calculating size.
-    
+
     size = 0;
-    
+
     for (i = 0; i < ArraySize(dimensions); ++i) {
       if (dimensions[i] != 0) {
         if (size == 0) {
@@ -674,13 +707,11 @@ class Matrix {
       }
     }
   }
-  
+
   /**
    * Assignment operator.
    */
-  void operator=(Matrix<X>& _right) {
-    Initialize(_right.ptr_first_dimension);
-  }
+  void operator=(Matrix<X>& _right) { Initialize(_right.ptr_first_dimension); }
 
   /**
    * Destructor.
@@ -1037,7 +1068,7 @@ class Matrix {
     }
     return MinOf((X)0);
   }
-  
+
   void Power(X value) {
     if (ptr_first_dimension) {
       ptr_first_dimension.Op(MATRIX_OPERATION_POWER, value);
@@ -1150,7 +1181,8 @@ class Matrix {
   /**
    * Calculates absolute difference between this tensor and given one using optional weights tensor.
    */
-  Matrix<X>* Mean(ENUM_MATRIX_OPERATION _abs_diff_op, ENUM_MATRIX_OPERATION _reduction, Matrix<X>* _prediction, Matrix<X>* _weights = NULL) {
+  Matrix<X>* Mean(ENUM_MATRIX_OPERATION _abs_diff_op, ENUM_MATRIX_OPERATION _reduction, Matrix<X>* _prediction,
+                  Matrix<X>* _weights = NULL) {
     switch (_abs_diff_op) {
       case MATRIX_OPERATION_ABS_DIFF:
       case MATRIX_OPERATION_ABS_DIFF_SQUARE:
@@ -1369,7 +1401,8 @@ class Matrix {
   /**
    * Calculates logarithmic squared absolute difference between this tensor and given one using optional weights tensor.
    */
-  Matrix<X>* MeanSquaredLogarithmic(Matrix<X>* _prediction, ENUM_MATRIX_OPERATION _reduction, Matrix<X>* _weights = NULL) {
+  Matrix<X>* MeanSquaredLogarithmic(Matrix<X>* _prediction, ENUM_MATRIX_OPERATION _reduction,
+                                    Matrix<X>* _weights = NULL) {
     return Mean(MATRIX_OPERATION_ABS_DIFF_SQUARE_LOG, _reduction, _prediction, _weights);
   }
 
@@ -1377,12 +1410,11 @@ class Matrix {
    * Calculates mean absolute using given reduction operation and optionally, weights tensor.
    */
   X MeanReduced(ENUM_MATRIX_OPERATION _abs_diff_op, ENUM_MATRIX_OPERATION _reduction, Matrix<X>* _prediction,
-         Matrix<X>* _weights = NULL) {
-    
+                Matrix<X>* _weights = NULL) {
     Matrix<X>* _diff = Mean(_abs_diff_op, _reduction, _prediction, _weights);
-    
+
     Print("diff = ", _diff.ToString(true, 2));
-    
+
     X result;
 
     switch (_reduction) {
