@@ -229,6 +229,26 @@ class MatrixDimension {
   }
 
   /**
+   * Makes a clone of this and child dimensions.
+   */
+  MatrixDimension<X>* Clone() {
+    MatrixDimension<X>* _clone = new MatrixDimension<X>(type);
+    int i;
+
+    if (type == MATRIX_DIMENSION_TYPE_CONTAINERS) {
+      ArrayResize(_clone.containers, ArraySize(containers));
+
+      for (i = 0; i < ArraySize(containers); ++i) {
+        _clone.containers[i] = containers[i].Clone();
+      }
+    } else {
+      ArrayCopy(_clone.values, values);
+    }
+
+    return _clone;
+  }
+
+  /**
    * Adds container to the list.
    */
   void AddContainer(MatrixDimension* _dimension) {
@@ -559,27 +579,26 @@ class MatrixDimension {
         break;
     }
   }
-  
+
   static Matrix<X>* MatMul(Matrix<X>* a, Matrix<X>* b) {
-		const int n = a.GetRange(0);
-		const int m = a.GetRange(1);
-		
-		Matrix<X>* ab = new Matrix<X>(a.GetRange(0), a.GetRange(1));
-		
-		if (m != b.GetRange(0))
-		  Alert("Wrong dimensions!");
-		
-		const int p = b.GetRange(1);
-		
-		for (int i = 0; i < n; ++i) {
-			for (int j = 0; j < p; ++j) {
-				for (int k = 0; k < m; ++k) {
-					ab[i][j] += a[i][k].Val() * b[k][j].Val();
-				}
-			}
-		}
-		
-		return ab;
+    const int n = a.GetRange(0);
+    const int m = a.GetRange(1);
+
+    Matrix<X>* ab = new Matrix<X>(a.GetRange(0), a.GetRange(1));
+
+    if (m != b.GetRange(0)) Alert("Wrong dimensions!");
+
+    const int p = b.GetRange(1);
+
+    for (int i = 0; i < n; ++i) {
+      for (int j = 0; j < p; ++j) {
+        for (int k = 0; k < m; ++k) {
+          ab[i][j] += a[i][k].Val() * b[k][j].Val();
+        }
+      }
+    }
+
+    return ab;
   }
 
   /**
@@ -648,7 +667,7 @@ class Matrix {
   /**
    * Constructor.
    */
-  Matrix(string _data) { this = Parse(_data); }
+  Matrix(string _data) { FromString(_data); }
 
   /**
    * Constructor.
@@ -661,7 +680,7 @@ class Matrix {
   /**
    * Constructor.
    */
-  Matrix(MatrixDimension<X>* _dimension) { Initialize(_dimension); }
+  Matrix(MatrixDimension<X>* _dimension) : ptr_first_dimension(NULL) { Initialize(_dimension); }
 
   /**
    * Matrix initializer.
@@ -687,7 +706,7 @@ class Matrix {
         dimensions[i++] = ArraySize(_dimension.values);
         break;
       } else {
-        Print("Internal error: dimensions should be of unknown type!");
+        Print("Internal error: unknown dimension type!");
       }
     }
 
@@ -711,7 +730,12 @@ class Matrix {
   /**
    * Assignment operator.
    */
-  void operator=(Matrix<X>& _right) { Initialize(_right.ptr_first_dimension); }
+  void operator=(Matrix<X>& _right) { Initialize(_right.ptr_first_dimension.Clone()); }
+
+  /**
+   * Assignment operator.
+   */
+  void operator=(string _data) { FromString(_data); }
 
   /**
    * Destructor.
@@ -1716,7 +1740,15 @@ class Matrix {
     return true;
   }
 
-  static Matrix<X>* Parse(string text) {
+  static Matrix<X>* CreateFromString(string text) {
+    Matrix<X>* _ptr_matrix = new Matrix<X>();
+
+    _ptr_matrix.FromString(text);
+
+    return _ptr_matrix;
+  }
+
+  void FromString(string text) {
     MatrixDimension<X>*_dimensions[], *_root_dimension = NULL;
     int _dimensions_length[MATRIX_DIMENSIONS] = {0, 0, 0, 0, 0};
     int i, _number_start_pos;
@@ -1733,7 +1765,7 @@ class Matrix {
         case '[':
           if (!_expecting_value_or_child) {
             Print("Unexpected '[' at offset ", i, "!");
-            return NULL;
+            return;
           }
 
           _had_values = false;
@@ -1777,7 +1809,7 @@ class Matrix {
         case '.':
           if (!_expecting_value_or_child) {
             Print("Unexpected number at offset ", i, "!");
-            return NULL;
+            return;
           }
 
           // Parsing number.
@@ -1789,9 +1821,9 @@ class Matrix {
           i -= 2;
           _dimensions[ArraySize(_dimensions) - 1].type = MATRIX_DIMENSION_TYPE_VALUES;
           _dimensions[ArraySize(_dimensions) - 1].AddValue(_number);
-          _expecting_value_or_child = false;
-          _expecting_comma = true;
           _expecting_end = true;
+          _expecting_value_or_child = true;
+          _expecting_comma = false;
           break;
 
         case ',':
@@ -1806,9 +1838,7 @@ class Matrix {
       }
     }
 
-    Matrix<X>* matrix = new Matrix<X>(_root_dimension);
-
-    return matrix;
+    Initialize(_root_dimension);
   }
 
   /**
