@@ -1437,8 +1437,6 @@ class Matrix {
                 Matrix<X>* _weights = NULL) {
     Matrix<X>* _diff = Mean(_abs_diff_op, _reduction, _prediction, _weights);
 
-    Print("diff = ", _diff.ToString(true, 2));
-
     X result;
 
     switch (_reduction) {
