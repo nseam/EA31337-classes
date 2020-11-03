@@ -1791,8 +1791,8 @@ class Matrix {
 
         case ']':
           ArrayResize(_dimensions, ArraySize(_dimensions) - 1, MATRIX_DIMENSIONS);
-          _expecting_value_or_child = false;
-          _expecting_comma = true;
+          _expecting_value_or_child = true;
+          _expecting_comma = false;
           break;
 
         case '0':
