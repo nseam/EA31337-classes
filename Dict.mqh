@@ -26,6 +26,7 @@
 
 #include "Convert.mqh"
 #include "DictBase.mqh"
+#include "Matrix.mqh"
 
 template <typename K, typename V>
 class DictIterator : public DictIteratorBase<K, V> {
@@ -64,6 +65,7 @@ class Dict : public DictBase<K, V> {
    * Copy constructor.
    */
   Dict(const Dict<K, V>& right) {
+    Clear();
     Resize(right.GetSlotCount());
     for (unsigned int i = 0; i < (unsigned int)ArraySize(right._DictSlots_ref.DictSlots); ++i) {
       _DictSlots_ref.DictSlots[i] = right._DictSlots_ref.DictSlots[i];
@@ -73,6 +75,7 @@ class Dict : public DictBase<K, V> {
   }
 
   void operator=(const Dict<K, V>& right) {
+    Clear();
     Resize(right.GetSlotCount());
     for (unsigned int i = 0; i < (unsigned int)ArraySize(right._DictSlots_ref.DictSlots); ++i) {
       _DictSlots_ref.DictSlots[i] = right._DictSlots_ref.DictSlots[i];
@@ -81,12 +84,28 @@ class Dict : public DictBase<K, V> {
     _mode = right._mode;
   }
 
+  void Clear() {
+    for (unsigned int i = 0; i < (unsigned int)ArraySize(_DictSlots_ref.DictSlots); ++i) {
+      if (_DictSlots_ref.DictSlots[i].IsValid() && _DictSlots_ref.DictSlots[i].IsUsed()) {
+        _DictSlots_ref.DictSlots[i].RemoveFlags(DICT_SLOT_IS_USED);
+        --_DictSlots_ref._num_used;
+      }
+    }
+  }
+
   /**
    * Inserts value using hashless key.
    */
   bool Push(V value) {
     if (!InsertInto(_DictSlots_ref, value)) return false;
     return true;
+  }
+
+  /**
+   * Inserts value using hashless key.
+   */
+  bool operator+=(V value) {
+    return Push(value);
   }
 
   /**
@@ -217,8 +236,16 @@ class Dict : public DictBase<K, V> {
 
     if (ArrayResize(new_DictSlots.DictSlots, new_size) == -1) return false;
 
+    unsigned int i;
+
+    for (i = 0; i < new_size; ++i) {
+      new_DictSlots.DictSlots[i].SetFlags(0);
+    }
+
+    new_DictSlots._num_used = 0;
+
     // Copies entire array of DictSlots into new array of DictSlots. Hashes will be rehashed.
-    for (unsigned int i = 0; i < (unsigned int)ArraySize(_DictSlots_ref.DictSlots); ++i) {
+    for (i = 0; i < (unsigned int)ArraySize(_DictSlots_ref.DictSlots); ++i) {
       if (!_DictSlots_ref.DictSlots[i].IsUsed()) continue;
 
       if (_DictSlots_ref.DictSlots[i].HasKey()) {
@@ -238,21 +265,18 @@ class Dict : public DictBase<K, V> {
 
  public:
   template <>
-  JsonNodeType Serialize(JsonSerializer& s) {
+  SerializerNodeType Serialize(Serializer& s) {
     if (s.IsWriting()) {
       for (DictIteratorBase<K, V> i = Begin(); i.IsValid(); ++i) {
-        // As we can't retrieve reference to the Dict's value, we need to
-        // use temporary variable.
         V value = i.Value();
-
-        s.Pass(this, i.KeyAsString(), value);
+        s.Pass(this, GetMode() == DictModeDict ? i.KeyAsString() : "", value);
       }
 
-      return (GetMode() == DictModeDict) ? JsonNodeObject : JsonNodeArray;
+      return (GetMode() == DictModeDict) ? SerializerNodeObject : SerializerNodeArray;
     } else {
-      JsonIterator<V> i;
+      SerializerIterator<V> i;
 
-      for (i = s.Begin<V>(); i.IsValid(); ++i)
+      for (i = s.Begin<V>(); i.IsValid(); ++i) {
         if (i.HasKey()) {
           // Converting key to a string.
           K key;
@@ -261,11 +285,37 @@ class Dict : public DictBase<K, V> {
           // Note that we're retrieving value by a key (as we are in an
           // object!).
           Set(key, i.Value(i.Key()));
-        } else
+        } else {
           Push(i.Value());
-
+        }
+      }
       return i.ParentNodeType();
     }
+  }
+
+  /**
+   * Initializes object with given number of elements. Could be skipped for non-containers.
+   */
+  template <>
+  void SerializeStub(int _n1 = 1, int _n2 = 1, int _n3 = 1, int _n4 = 1, int _n5 = 1) {
+    V _child = default;
+
+    while (_n1-- > 0) {
+      Push(_child);
+    }
+  }
+
+  /**
+   * Converts values into 1D matrix.
+   */
+  template<typename X>
+  Matrix<X>* ToMatrix() {
+    Matrix<X>* result = new Matrix<X>(Size());
+
+    for (DictIterator<K, V> i = Begin(); i.IsValid(); ++i)
+      result[i.Index()] = (X)i.Value();
+
+    return result;
   }
 };
 

@@ -5,18 +5,19 @@
 //+------------------------------------------------------------------+
 
 /*
- *  This file is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
-
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
-
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 // Prevents processing this includes file for the second time.
@@ -62,45 +63,6 @@ enum ENUM_ACC_STAT_INDEX {
   ACC_VALUE_CURR            = 0,
   ACC_VALUE_PREV            = 1,
   FINAL_ENUM_ACC_STAT_INDEX = 2
-};
-
-// Account conditions.
-enum ENUM_ACCOUNT_CONDITION {
-  ACCOUNT_COND_NONE              = 0,  // Empty condition.
-  /* @todo
-  ACCOUNT_COND_BALM_GT_YEARLY, // Current month's balance highest of the year
-  ACCOUNT_COND_BALM_LT_YEARLY, // Current month's balance lowest of the year
-  ACCOUNT_COND_BALT_GT_WEEKLY, // Today's balance highest of the week
-  ACCOUNT_COND_BALT_IN_LOSS, // Today's balance in loss
-  ACCOUNT_COND_BALT_IN_PROFIT, // Today's balance in profit
-  ACCOUNT_COND_BALT_LT_WEEKLY, // Today's balance lowest of the week
-  ACCOUNT_COND_BALW_GT_MONTHLY, // Current week's balance highest of the month
-  ACCOUNT_COND_BALW_LT_MONTHLY, // Current week's balance lowest of the month
-  ACCOUNT_COND_BALY_IN_LOSS, // Previous day in loss
-  ACCOUNT_COND_BALY_IN_PROFIT, // Previous day in profit
-  */
-  ACCOUNT_COND_BAL_IN_LOSS, // Total balance in loss
-  ACCOUNT_COND_BAL_IN_PROFIT, // Total balance in profit
-  ACCOUNT_COND_EQUITY_01PC_HIGH, // Equity 1% high
-  ACCOUNT_COND_EQUITY_01PC_LOW, // Equity 1% low
-  ACCOUNT_COND_EQUITY_05PC_HIGH, // Equity 5% high
-  ACCOUNT_COND_EQUITY_05PC_LOW, // Equity 5% low
-  ACCOUNT_COND_EQUITY_10PC_HIGH, // Equity 10% high
-  ACCOUNT_COND_EQUITY_10PC_LOW, // Equity 10% low
-  ACCOUNT_COND_EQUITY_20PC_HIGH, // Equity 20% high
-  ACCOUNT_COND_EQUITY_20PC_LOW, // Equity 20% low
-  ACCOUNT_COND_EQUITY_IN_LOSS, // Equity in loss
-  ACCOUNT_COND_EQUITY_IN_PROFIT, // Equity in profit
-  /* @todo
-  ACCOUNT_COND_MARGIN_CALL_10PC, // Margin Call (10% margin left)
-  ACCOUNT_COND_MARGIN_CALL_20PC, // Margin Call (20% margin left)
-  */
-  ACCOUNT_COND_MARGIN_USED_10PC, // Margin Used in 10%
-  ACCOUNT_COND_MARGIN_USED_20PC, // Margin Used in 20%
-  ACCOUNT_COND_MARGIN_USED_50PC, // Margin Used in 50%
-  ACCOUNT_COND_MARGIN_USED_80PC, // Margin Used in 80%
-  ACCOUNT_COND_MARGIN_USED_99PC, // Margin Used in 99%
-  FINAL_ACCOUNT_CONDITION_ENTRY
 };
 
 // Class structs.
@@ -529,7 +491,7 @@ class Account {
   static double CalcInitDeposit() {
     double deposit = AccountInfoDouble(ACCOUNT_BALANCE);
     for (int i = Account::OrdersHistoryTotal() - 1; i >= 0; i--) {
-      if (!Order::OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
+      if (!Order::TryOrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
       int type = Order::OrderType();
       // Initial balance not considered.
       if (i == 0 && type == ACC_OP_BALANCE) break;
@@ -605,7 +567,7 @@ class Account {
    * @return
    *   Returns true when the condition is met.
    */
-  bool Condition(ENUM_ACCOUNT_CONDITION _cond, MqlParam &_args[]) {
+  bool CheckCondition(ENUM_ACCOUNT_CONDITION _cond, MqlParam &_args[]) {
     switch (_cond) {
       /* @todo
       case ACCOUNT_COND_BALM_GT_YEARLY:
@@ -691,9 +653,9 @@ class Account {
         return false;
     }
   }
-  bool Condition(ENUM_ACCOUNT_CONDITION _cond) {
+  bool CheckCondition(ENUM_ACCOUNT_CONDITION _cond) {
     MqlParam _args[] = {};
-    return Account::Condition(_cond, _args);
+    return Account::CheckCondition(_cond, _args);
   }
 
   /* Printers */

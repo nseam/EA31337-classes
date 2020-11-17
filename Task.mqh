@@ -9,14 +9,15 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
-
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
-
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 /**
@@ -28,74 +29,13 @@
 #ifndef TASK_MQH
 #define TASK_MQH
 
-// Forward class declaration.
-class Task;
-
 // Includes.
 #include "Action.mqh"
 #include "Condition.mqh"
-
-// Enums.
-// Defines task entry flags.
-enum ENUM_TASK_ENTRY_FLAGS {
-  TASK_ENTRY_FLAG_NONE = 0,
-  TASK_ENTRY_FLAG_IS_ACTIVE = 1,
-  TASK_ENTRY_FLAG_IS_DONE = 2,
-  TASK_ENTRY_FLAG_IS_EXPIRED = 4,
-  TASK_ENTRY_FLAG_IS_FAILED = 8,
-  TASK_ENTRY_FLAG_IS_INVALID = 16
-};
-
-// Actions for action class.
-enum ENUM_TASK_ACTION {
-  TASK_ACTION_NONE = 0,  // Does nothing.
-  TASK_ACTION_PROCESS,   // Process tasks.
-  FINAL_TASK_ACTION_ENTRY
-};
-
-// Action conditions.
-enum ENUM_TASK_CONDITION {
-  TASK_COND_NONE = 0,     // Empty condition.
-  TASK_COND_IS_ACTIVE,    // Is active.
-  TASK_COND_IS_DONE,      // Is done.
-  TASK_COND_IS_FAILED,    // Is failed.
-  TASK_COND_IS_FINISHED,  // Is finished.
-  TASK_COND_IS_INVALID,   // Is invalid.
-  FINAL_TASK_CONDITION_ENTRY
-};
-
-// Structs.
-struct TaskEntry {
-  Action *action;         // Action of the task.
-  Condition *cond;        // Condition of the task.
-  datetime expires;       // Time of expiration.
-  datetime last_process;  // Time of the last process.
-  datetime last_success;  // Time of the last success.
-  unsigned char flags;    // Action flags.
-  // Constructor.
-  void ActionEntry() {}
-  void Init() {
-    flags = TASK_ENTRY_FLAG_NONE;
-    AddFlags(TASK_ENTRY_FLAG_IS_ACTIVE);
-    expires = last_process = last_success = 0;
-  }
-  // Flag methods.
-  bool HasFlag(unsigned char _flag) { return bool(flags & _flag); }
-  void AddFlags(unsigned char _flags) { flags |= _flags; }
-  void RemoveFlags(unsigned char _flags) { flags &= ~_flags; }
-  void SetFlag(ENUM_TASK_ENTRY_FLAGS _flag, bool _value) {
-    if (_value)
-      AddFlags(_flag);
-    else
-      RemoveFlags(_flag);
-  }
-  void SetFlags(unsigned char _flags) { flags = _flags; }
-  // State methods.
-  bool IsActive() { return HasFlag(ACTION_ENTRY_FLAG_IS_ACTIVE); }
-  bool IsDone() { return HasFlag(ACTION_ENTRY_FLAG_IS_DONE); }
-  bool IsFailed() { return HasFlag(ACTION_ENTRY_FLAG_IS_FAILED); }
-  bool IsValid() { return !HasFlag(ACTION_ENTRY_FLAG_IS_INVALID); }
-};
+#include "DictStruct.mqh"
+#include "Refs.mqh"
+#include "Task.enum.h"
+#include "Task.struct.h"
 
 class Task {
  protected:
@@ -104,40 +44,34 @@ class Task {
 
  public:
   // Class variables.
-  DictStruct<short, TaskEntry> *tasks;
+  DictStruct<short, TaskEntry> tasks;
 
   /* Special methods */
 
   /**
    * Class constructor.
    */
-  Task() { Init(); }
-  Task(TaskEntry &_entry) {
-    Init();
-    tasks.Push(_entry);
-  }
+  Task() {}
+  Task(TaskEntry &_entry) { Add(_entry); }
 
   /**
    * Class copy constructor.
    */
-  Task(Task &_task) {
-    Init();
-    tasks = _task.GetTasks();
-  }
+  Task(Task &_task) { tasks = _task.GetTasks(); }
 
   /**
    * Class deconstructor.
    */
   ~Task() {}
 
-  Log* Logger() { return logger.Ptr(); }
-
-  /**
-   * Initialize class variables.
-   */
-  void Init() { tasks = new DictStruct<short, TaskEntry>(); }
+  Log *Logger() { return logger.Ptr(); }
 
   /* Main methods */
+
+  /**
+   * Adds new task.
+   */
+  void Add(TaskEntry &_entry) { tasks.Push(_entry); }
 
   /**
    * Process tasks.
@@ -150,19 +84,32 @@ class Task {
     for (DictStructIterator<short, TaskEntry> iter = tasks.Begin(); iter.IsValid(); ++iter) {
       bool _curr_result = false;
       TaskEntry _entry = iter.Value();
-      if (_entry.IsActive()) {
-        if (_entry.cond.Test()) {
-          _entry.action.Execute();
-          if (_entry.action.IsFinished()) {
-            _entry.SetFlag(TASK_ENTRY_FLAG_IS_DONE, _entry.action.IsDone());
-            _entry.SetFlag(TASK_ENTRY_FLAG_IS_FAILED, _entry.action.IsFailed());
-            _entry.SetFlag(TASK_ENTRY_FLAG_IS_INVALID, _entry.action.IsInvalid());
-            _entry.RemoveFlags(TASK_ENTRY_FLAG_IS_ACTIVE);
-          }
+      Process(_entry);
+    }
+    return _result;
+  }
+
+  /**
+   * Process task entry.
+   *
+   * @return
+   *   Returns true when tasks has been processed.
+   */
+  static bool Process(TaskEntry &_entry) {
+    bool _result = false;
+    if (_entry.IsActive()) {
+      if (Condition::Test(_entry.GetCondition())) {
+        ActionEntry _action = _entry.GetAction();
+        Action::Execute(_action);
+        if (_action.IsDone()) {
+          _entry.SetFlag(TASK_ENTRY_FLAG_IS_DONE, _action.IsDone());
+          _entry.SetFlag(TASK_ENTRY_FLAG_IS_FAILED, _action.IsFailed());
+          _entry.SetFlag(TASK_ENTRY_FLAG_IS_INVALID, _action.IsInvalid());
+          _entry.RemoveFlags(TASK_ENTRY_FLAG_IS_ACTIVE);
         }
-        _entry.last_process = TimeCurrent();
-        _result = true;
       }
+      _entry.last_process = TimeCurrent();
+      _result = true;
     }
     return _result;
   }
@@ -214,7 +161,7 @@ class Task {
   /**
    * Returns tasks.
    */
-  DictStruct<short, TaskEntry> *GetTasks() { return tasks; }
+  DictStruct<short, TaskEntry> *GetTasks() { return &tasks; }
 
   /**
    * Count entry flags.
@@ -267,7 +214,7 @@ class Task {
    * @return
    *   Returns true when the condition is met.
    */
-  bool Condition(ENUM_TASK_CONDITION _cond, MqlParam &_args[]) {
+  bool CheckCondition(ENUM_TASK_CONDITION _cond, MqlParam &_args[]) {
     switch (_cond) {
       case TASK_COND_IS_ACTIVE:
         // Is active;
@@ -289,9 +236,9 @@ class Task {
         return false;
     }
   }
-  bool Condition(ENUM_TASK_CONDITION _cond) {
+  bool CheckCondition(ENUM_TASK_CONDITION _cond) {
     MqlParam _args[] = {};
-    return Task::Condition(_cond, _args);
+    return Task::CheckCondition(_cond, _args);
   }
 
   /**

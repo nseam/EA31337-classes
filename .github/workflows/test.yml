@@ -27,6 +27,7 @@ jobs:
       - name: Compile
         uses: fx31337/mql-compile-action@master
         with:
+          init-platform: true
           verbose: true
       - name: Print compiled files
         run: '(Get-ChildItem -Recurse -Path . -Include *.ex[45]).fullname'
@@ -96,6 +97,7 @@ jobs:
           - CollectionTest
           - ConfigTest
           - ConvertTest
+          - DateTimeTest
           - DictTest
           - LogTest
           - ProfilerTest

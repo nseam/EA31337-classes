@@ -5,18 +5,19 @@
 //+------------------------------------------------------------------+
 
 /*
- *  This file is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
-
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
-
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 /**
@@ -28,152 +29,41 @@
 #ifndef EA_MQH
 #define EA_MQH
 
-// Forward class declaration.
-class Condition;
-
-// Enums.
-// EA actions.
-enum ENUM_EA_ACTION {
-  EA_ACTION_DISABLE = 0,  // Disables EA.
-  EA_ACTION_ENABLE,       // Enables EA.
-  EA_ACTION_TASKS_CLEAN,  // Clean tasks.
-  FINAL_EA_ACTION_ENTRY
-};
-
-// EA conditions.
-enum ENUM_EA_CONDITION {
-  EA_COND_IS_ACTIVE = 1,   // When EA is active (can trade).
-  EA_COND_IS_ENABLED = 2,  // When EA is enabled.
-  FINAL_EA_CONDITION_ENTRY
-};
-
-// Defines EA state flags.
-enum ENUM_EA_STATE_FLAGS {
-  EA_STATE_FLAG_NONE = 0 << 0,            // None flags.
-  EA_STATE_FLAG_ACTIVE = 1 << 0,          // Is active (can trade).
-  EA_STATE_FLAG_CONNECTED = 1 << 1,       // Indicates connectedness to a trade server.
-  EA_STATE_FLAG_ENABLED = 1 << 2,         // Is enabled.
-  EA_STATE_FLAG_LIBS_ALLOWED = 1 << 3,    // Indicates the permission to use external libraries (such as DLL).
-  EA_STATE_FLAG_OPTIMIZATION = 1 << 4,    // Indicates EA runs in optimization mode.
-  EA_STATE_FLAG_TESTING = 1 << 5,         // Indicates EA runs in testing mode.
-  EA_STATE_FLAG_TESTING_VISUAL = 1 << 6,  // Indicates EA runs in visual testing mode.
-  EA_STATE_FLAG_TRADE_ALLOWED = 1 << 7,   // Indicates the permission to trade on the chart.
-};
-
 // Includes.
+#include "Action.enum.h"
 #include "Chart.mqh"
+#include "Condition.enum.h"
+#include "Dict.mqh"
+#include "DictObject.mqh"
+#include "EA.enum.h"
+#include "EA.struct.h"
+#include "Indicator.struct.h"
 #include "Market.mqh"
+#include "Refs.struct.h"
 #include "Strategy.mqh"
 #include "SummaryReport.mqh"
 #include "Task.mqh"
 #include "Terminal.mqh"
-
-// Defines EA config parameters.
-struct EAParams {
-  string author;             // EA's author.
-  string desc;               // EA's description.
-  string name;               // EA's name.
-  string symbol;             // Symbol to trade on.
-  string ver;                // EA's version.
-  unsigned long magic_no;    // Magic number.
-  ENUM_LOG_LEVEL log_level;  // Log verbosity level.
-  int chart_info_freq;       // Updates info on chart (in secs, 0 - off).
-  bool report_to_file;       // Report to file.
-  // Struct special methods.
-  EAParams(string _name = __FILE__, ENUM_LOG_LEVEL _ll = V_INFO, unsigned long _magic = 0)
-      : author("unknown"),
-        name(_name),
-        desc("..."),
-        symbol(_Symbol),
-        ver("v1.00"),
-        log_level(_ll),
-        magic_no(_magic > 0 ? _magic : rand()),
-        chart_info_freq(0) {}
-  // Getters.
-  string GetAuthor() { return author; }
-  string GetName() { return name; }
-  string GetSymbol() { return symbol; }
-  string GetDesc() { return desc; }
-  string GetVersion() { return ver; }
-  unsigned long GetMagicNo() { return magic_no; }
-  ENUM_LOG_LEVEL GetLogLevel() { return log_level; }
-  // Setters.
-  void SetAuthor(string _author) { author = _author; }
-  void SetChartInfoFreq(bool _secs) { chart_info_freq = _secs; }
-  void SetDesc(string _desc) { desc = _desc; }
-  void SetFileReport(bool _bool) { report_to_file = _bool; }
-  void SetLogLevel(ENUM_LOG_LEVEL _level) { log_level = _level; }
-  void SetName(string _name) { name = _name; }
-  void SetVersion(string _ver) { ver = _ver; }
-  // Printers.
-  string ToString(string _dlm = ",") { return StringFormat("%s v%s by %s (%s)", name, ver, author, desc); }
-};
-
-// Defines struct to store results for EA processing.
-struct EAProcessResult {
-  unsigned int last_error;       // Last error code.
-  unsigned int stg_errored;      // Number of errored strategies.
-  unsigned int stg_processed;    // Number of processed strategies.
-  unsigned int stg_suspended;    // Number of suspended strategies.
-  unsigned int tasks_processed;  // Number of tasks processed.
-  EAProcessResult() { Reset(); }
-  void Reset() {
-    stg_errored = stg_processed = stg_suspended = 0;
-    ResetError();
-  }
-  void ResetError() {
-    ResetLastError();
-    last_error = ERR_NO_ERROR;
-  }
-  string ToString() { return StringFormat("%d", last_error); }
-};
-
-// Defines EA state variables.
-struct EAState {
-  unsigned char flags;  // Action flags.
-  // Constructor.
-  EAState() { AddFlags(EA_STATE_FLAG_ACTIVE | EA_STATE_FLAG_ENABLED); }
-  // Struct methods.
-  // Flag methods.
-  bool CheckFlag(unsigned char _flag) { return bool(flags & _flag); }
-  void AddFlags(unsigned char _flags) { flags |= _flags; }
-  void RemoveFlags(unsigned char _flags) { flags &= ~_flags; }
-  void SetFlag(ENUM_EA_STATE_FLAGS _flag, bool _value) {
-    if (_value) {
-      AddFlags(_flag);
-    } else {
-      RemoveFlags(_flag);
-    }
-  }
-  void SetFlags(unsigned char _flags) { flags = _flags; }
-  // State methods.
-  bool IsActive() { return CheckFlag(EA_STATE_FLAG_ACTIVE); }
-  bool IsConnected() { return CheckFlag(EA_STATE_FLAG_CONNECTED); }
-  bool IsEnabled() { return CheckFlag(EA_STATE_FLAG_ENABLED); }
-  bool IsLibsAllowed() { return !CheckFlag(EA_STATE_FLAG_LIBS_ALLOWED); }
-  bool IsOptimizationMode() { return !CheckFlag(EA_STATE_FLAG_OPTIMIZATION); }
-  bool IsTestingMode() { return !CheckFlag(EA_STATE_FLAG_TESTING); }
-  bool IsTestingVisualMode() { return !CheckFlag(EA_STATE_FLAG_TESTING_VISUAL); }
-  bool IsTradeAllowed() { return !CheckFlag(EA_STATE_FLAG_TRADE_ALLOWED); }
-  // Setters.
-  void Enable(bool _state = true) { SetFlag(EA_STATE_FLAG_ENABLED, _state); }
-};
+#include "Trade.mqh"
 
 class EA {
  protected:
   // Class variables.
   Account *account;
-  DictObject<ENUM_TIMEFRAMES, Dict<long, Strategy *>> *strats;
-  DictObject<ENUM_TIMEFRAMES, Trade> *trade;
-  DictObject<short, Task> *tasks;
+  DictObject<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> strats;
+  DictStruct<short, TaskEntry> tasks;
   Market *market;
   Ref<Log> logger;
   SummaryReport *report;
   Terminal *terminal;
 
   // Data variables.
-  Dict<string, double> *ddata;
-  Dict<string, int> *idata;
+  BufferStruct<ChartEntry> data_chart;
+  BufferStruct<SymbolInfoEntry> data_symbol;
+  Dict<string, double> ddata;  // Custom user data.
+  Dict<string, int> idata;     // Custom user data.
+  DictObject<ENUM_TIMEFRAMES, BufferStruct<IndicatorDataEntry>> data_indi;
+  DictObject<ENUM_TIMEFRAMES, BufferStruct<StgEntry>> data_stg;
   EAParams eparams;
   EAProcessResult eresults;
   EAState estate;
@@ -185,35 +75,33 @@ class EA {
   EA(EAParams &_params)
       : account(new Account),
         logger(new Log(_params.log_level)),
-        market(new Market(_params. symbol, logger.Ptr())),
+        market(new Market(_params.symbol, logger.Ptr())),
         report(new SummaryReport),
-        strats(new DictObject<ENUM_TIMEFRAMES, Dict<long, Strategy *>>),
-        tasks(new DictObject<short, Task>),
         terminal(new Terminal) {
     eparams = _params;
+    estate.SetFlag(EA_STATE_FLAG_ON_INIT, true);
     UpdateStateFlags();
+    // Add and process tasks.
+    AddTask(eparams.task_entry);
+    ProcessTasks();
+    estate.SetFlag(EA_STATE_FLAG_ON_INIT, false);
   }
 
   /**
    * Class deconstructor.
    */
   ~EA() {
+    // Process tasks on quit.
+    estate.SetFlag(EA_STATE_FLAG_ON_QUIT, true);
+    ProcessTasks();
+    // Deinitialize classes.
     Object::Delete(account);
     Object::Delete(market);
     Object::Delete(report);
-    Object::Delete(tasks);
     Object::Delete(terminal);
-    Object::Delete(trade);
-
-    for (DictObjectIterator<ENUM_TIMEFRAMES, Dict<long, Strategy *>> iter1 = strats.Begin(); iter1.IsValid(); ++iter1) {
-      for (DictIterator<long, Strategy *> iter2 = iter1.Value().Begin(); iter2.IsValid(); ++iter2) {
-         Object::Delete(iter2.Value());
-      }
-    }
-    Object::Delete(strats);
   }
 
-  Log* Logger() { return logger.Ptr(); }
+  Log *Logger() { return logger.Ptr(); }
 
   /* Processing methods */
 
@@ -226,15 +114,22 @@ class EA {
    *   Returns number of strategies which processed the tick.
    */
   virtual EAProcessResult ProcessTick(const ENUM_TIMEFRAMES _tf, const MqlTick &_tick) {
-    for (DictIterator<long, Strategy *> iter = strats[_tf].Begin(); iter.IsValid(); ++iter) {
-      Strategy *_strat = iter.Value();
+    for (DictStructIterator<long, Ref<Strategy>> iter = strats[_tf].Begin(); iter.IsValid(); ++iter) {
+      Strategy *_strat = iter.Value().Ptr();
       if (_strat.IsEnabled()) {
+        if (estate.new_periods != DATETIME_NONE) {
+          // Process when new periods started.
+          _strat.OnPeriod(estate.new_periods);
+          eresults.stg_processed_periods++;
+        }
         if (_strat.TickFilter(_tick)) {
           if (!_strat.IsSuspended()) {
-            StgProcessResult _strat_result = _strat.Process();
-            eresults.last_error = fmax(eresults.last_error, _strat_result.last_error);
-            eresults.stg_errored += (int) _strat_result.last_error > ERR_NO_ERROR;
-            eresults.stg_processed++;
+            if (_strat.Trade().IsTradeAllowed()) {
+              StgProcessResult _strat_result = _strat.Process(estate.new_periods);
+              eresults.last_error = fmax(eresults.last_error, _strat_result.last_error);
+              eresults.stg_errored += (int)_strat_result.last_error > ERR_NO_ERROR;
+              eresults.stg_processed++;
+            }
           } else {
             eresults.stg_suspended++;
           }
@@ -244,32 +139,204 @@ class EA {
     return eresults;
   }
   virtual EAProcessResult ProcessTick() {
-    if (estate.IsActive() && estate.IsEnabled()) {
+    if (estate.IsEnabled()) {
       eresults.Reset();
-      market.SetTick(SymbolInfo::GetTick(_Symbol));
-      for (DictObjectIterator<ENUM_TIMEFRAMES, Dict<long, Strategy *>>
-        iter_tf = strats.Begin();
-        iter_tf.IsValid();
-        ++iter_tf) {
-          ProcessTick(iter_tf.Key(), market.GetLastTick());
+      if (estate.IsActive()) {
+        market.SetTick(SymbolInfo::GetTick(_Symbol));
+        ProcessPeriods();
+        for (DictObjectIterator<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> iter_tf = strats.Begin();
+             iter_tf.IsValid(); ++iter_tf) {
+          ENUM_TIMEFRAMES _tf = iter_tf.Key();
+          ProcessTick(_tf, market.GetLastTick());
+        }
+        if (eresults.last_error > ERR_NO_ERROR) {
+          logger.Ptr().Flush();
+        }
       }
-      if (eresults.last_error > ERR_NO_ERROR) {
-        logger.Ptr().Flush();
+      estate.last_updated.Update();
+      if (estate.new_periods > 0) {
+        // Process data and tasks on new periods.
+        ProcessData();
+        ProcessTasks();
       }
     }
     return eresults;
   }
 
   /**
-   * Process tasks.
+   * Process data to store.
+   */
+  void ProcessData() {
+    long _timestamp = estate.last_updated.GetEntry().GetTimestamp();
+    if ((eparams.data_store & EA_DATA_STORE_CHART) != 0) {
+      ChartEntry _entry = Chart().GetEntry();
+      data_chart.Add(_entry, _entry.GetOHLC().time);
+    }
+    if ((eparams.data_store & EA_DATA_STORE_INDICATOR) != 0) {
+      for (DictObjectIterator<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> iter_tf = strats.Begin();
+           iter_tf.IsValid(); ++iter_tf) {
+        ENUM_TIMEFRAMES _itf = iter_tf.Key();
+        for (DictStructIterator<long, Ref<Strategy>> iter = strats[_itf].Begin(); iter.IsValid(); ++iter) {
+          Strategy *_strati = iter.Value().Ptr();
+          IndicatorDataEntry _ientry = _strati.GetParams().GetIndicator().GetEntry();
+          if (!data_indi.KeyExists(_itf)) {
+            // Create new timeframe buffer if does not exist.
+            data_indi.Set(_itf, new BufferStruct<IndicatorDataEntry>);
+          }
+          // Save entry into data_indi.
+          data_indi[_itf].Add(_ientry);
+        }
+      }
+    }
+    if ((eparams.data_store & EA_DATA_STORE_STRATEGY) != 0) {
+      for (DictObjectIterator<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> iter_tf = strats.Begin();
+           iter_tf.IsValid(); ++iter_tf) {
+        ENUM_TIMEFRAMES _stf = iter_tf.Key();
+        for (DictStructIterator<long, Ref<Strategy>> iter = strats[_stf].Begin(); iter.IsValid(); ++iter) {
+          Strategy *_strat = iter.Value().Ptr();
+          StgEntry _sentry = _strat.GetEntry();
+          if (!data_stg.KeyExists(_stf)) {
+            // Create new timeframe buffer if does not exist.
+            data_stg.Set(_stf, new BufferStruct<StgEntry>);
+          }
+          // Save data into data_stg.
+          data_stg[_stf].Add(_sentry);
+        }
+      }
+    }
+    if ((eparams.data_store & EA_DATA_STORE_SYMBOL) != 0) {
+      data_symbol.Add(SymbolInfo().GetEntryLast(), _timestamp);
+    }
+    if ((eparams.data_store & EA_DATA_STORE_TRADE) != 0) {
+      // @todo
+    }
+  }
+
+  /**
+   * Checks for new starting periods.
+   */
+  unsigned short ProcessPeriods() {
+    estate.new_periods = estate.last_updated.GetStartedPeriods();
+    OnPeriod();
+    return estate.new_periods;
+  }
+
+  /**
+   * Export data.
+   */
+  void DataExport(unsigned short _methods = EA_DATA_EXPORT_NONE) {
+    long _timestamp = estate.last_updated.GetEntry().GetTimestamp();
+    if ((eparams.data_store & EA_DATA_STORE_CHART) != 0) {
+      if ((_methods & EA_DATA_EXPORT_CSV) != 0) {
+        // @todo
+        // CSV::Stringify(data_chart);
+      }
+      if ((_methods & EA_DATA_EXPORT_DB) != 0) {
+        // @todo: Use Database class.
+      }
+      if ((_methods & EA_DATA_EXPORT_JSON) != 0) {
+        // @todo
+        // Print(JSON::Stringify(data_chart));
+      }
+    }
+    if ((eparams.data_store & EA_DATA_STORE_INDICATOR) != 0) {
+      for (DictObjectIterator<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> iter_tf = strats.Begin();
+           iter_tf.IsValid(); ++iter_tf) {
+        ENUM_TIMEFRAMES _itf = iter_tf.Key();
+        for (DictStructIterator<long, Ref<Strategy>> iter = strats[_itf].Begin(); iter.IsValid(); ++iter) {
+          if (data_indi.KeyExists(_itf)) {
+            BufferStruct<IndicatorDataEntry> _indi_buff;
+            if ((_methods & EA_DATA_EXPORT_CSV) != 0) {
+              // @todo
+              // CSV::Stringify(_indi_buff);
+            }
+            if ((_methods & EA_DATA_EXPORT_DB) != 0) {
+              // @todo: Use Database class.
+            }
+            if ((_methods & EA_DATA_EXPORT_JSON) != 0) {
+              // JSON::Stringify(_indi_buff);
+            }
+          }
+        }
+      }
+    }
+    if ((eparams.data_store & EA_DATA_STORE_STRATEGY) != 0) {
+      for (DictObjectIterator<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> iter_tf = strats.Begin();
+           iter_tf.IsValid(); ++iter_tf) {
+        ENUM_TIMEFRAMES _stf = iter_tf.Key();
+        for (DictStructIterator<long, Ref<Strategy>> iter = strats[_stf].Begin(); iter.IsValid(); ++iter) {
+          if (data_stg.KeyExists(_stf)) {
+            BufferStruct<StgEntry> _stg_buff;
+            if ((_methods & EA_DATA_EXPORT_CSV) != 0) {
+              // @todo
+              // CSV::Stringify(_stg_buff);
+            }
+            if ((_methods & EA_DATA_EXPORT_DB) != 0) {
+              // @todo: Use Database class.
+            }
+            if ((_methods & EA_DATA_EXPORT_JSON) != 0) {
+              // @todo
+              // JSON::Stringify(_stg_buff);
+            }
+          }
+        }
+      }
+    }
+    if ((eparams.data_store & EA_DATA_STORE_SYMBOL) != 0) {
+      if ((_methods & EA_DATA_EXPORT_CSV) != 0) {
+        // @todo
+        // CSV::Stringify(data_symbol);
+      }
+      if ((_methods & EA_DATA_EXPORT_DB) != 0) {
+        // @todo: Use Database class.
+      }
+      if ((_methods & EA_DATA_EXPORT_JSON) != 0) {
+        // @todo
+        // JSON::Stringify(data_symbol);
+      }
+    }
+    if ((eparams.data_store & EA_DATA_STORE_TRADE) != 0) {
+      if ((_methods & EA_DATA_EXPORT_CSV) != 0) {
+        // @todo
+        // CSV::Stringify(data_trade);
+      }
+      if ((_methods & EA_DATA_EXPORT_DB) != 0) {
+        // @todo: Use Database class.
+      }
+      if ((_methods & EA_DATA_EXPORT_JSON) != 0) {
+        // @todo
+        // JSON::Stringify(data_trade);
+      }
+    }
+  }
+
+  /* Tasks */
+
+  /**
+   * Add task.
+   */
+  void AddTask(TaskEntry &_entry) {
+    if (_entry.IsValid()) {
+      if (_entry.GetAction().GetType() == ACTION_TYPE_EA) {
+        _entry.SetActionObject(GetPointer(this));
+      }
+      if (_entry.GetCondition().GetType() == COND_TYPE_EA) {
+        _entry.SetConditionObject(GetPointer(this));
+      }
+      tasks.Push(_entry);
+    }
+  }
+
+  /**
+   * Process EA tasks.
    */
   unsigned int ProcessTasks() {
     unsigned int _counter = 0;
-    for (DictStructIterator<short, Task> iter = tasks.Begin(); iter.IsValid(); ++iter) {
-      Task _entry = iter.Value();
-      if (_entry.Process()) {
-        _counter++;
-      }
+    for (DictStructIterator<short, TaskEntry> iter = tasks.Begin(); iter.IsValid(); ++iter) {
+      bool _is_processed = false;
+      TaskEntry _entry = iter.Value();
+      _is_processed = Task::Process(_entry);
+      _counter += (unsigned short)_is_processed;
     }
     return _counter;
   }
@@ -288,8 +355,8 @@ class EA {
    */
   template <typename SClass>
   bool StrategyAdd(ENUM_TIMEFRAMES _tf, long _sid = -1) {
-    Strategy *_strat = ((SClass *)NULL).Init(_tf);
-    Dict<long, Strategy *> _strat_dict;
+    Ref<Strategy> _strat = ((SClass *)NULL).Init(_tf);
+    DictStruct<long, Ref<Strategy>> _strat_dict;
     if (_sid > 0) {
       _strat_dict.Set(_sid, _strat);
     } else {
@@ -310,7 +377,7 @@ class EA {
    */
   template <typename SClass>
   bool StrategyAdd(unsigned int _tfs, long _sid = -1) {
-    bool _result = true;
+    bool _result = false;
     if ((_tfs & M1B) == M1B) _result = StrategyAdd<SClass>(PERIOD_M1, _sid);
     if ((_tfs & M5B) == M5B) _result = StrategyAdd<SClass>(PERIOD_M5, _sid);
     if ((_tfs & M15B) == M15B) _result = StrategyAdd<SClass>(PERIOD_M15, _sid);
@@ -363,20 +430,39 @@ class EA {
    * @return
    *   Returns true when the condition is met.
    */
-  bool Condition(ENUM_EA_CONDITION _cond, MqlParam &_args[]) {
+  bool CheckCondition(ENUM_EA_CONDITION _cond, MqlParam &_args[]) {
     switch (_cond) {
       case EA_COND_IS_ACTIVE:
         return estate.IsActive();
       case EA_COND_IS_ENABLED:
         return estate.IsEnabled();
+      case EA_COND_IS_NOT_CONNECTED:
+        estate.SetFlag(EA_STATE_FLAG_CONNECTED, terminal.IsConnected());
+        return !estate.IsConnected();
+      case EA_COND_ON_NEW_MINUTE:  // On new minute.
+        return (estate.new_periods & DATETIME_MINUTE) != 0;
+      case EA_COND_ON_NEW_HOUR:  // On new hour.
+        return (estate.new_periods & DATETIME_HOUR) != 0;
+      case EA_COND_ON_NEW_DAY:  // On new day.
+        return (estate.new_periods & DATETIME_DAY) != 0;
+      case EA_COND_ON_NEW_WEEK:  // On new week.
+        return (estate.new_periods & DATETIME_WEEK) != 0;
+      case EA_COND_ON_NEW_MONTH:  // On new month.
+        return (estate.new_periods & DATETIME_MONTH) != 0;
+      case EA_COND_ON_NEW_YEAR:  // On new year.
+        return (estate.new_periods & DATETIME_YEAR) != 0;
+      case EA_COND_ON_INIT:
+        return estate.IsOnInit();
+      case EA_COND_ON_QUIT:
+        return estate.IsOnQuit();
       default:
         Logger().Error(StringFormat("Invalid EA condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
         return false;
     }
   }
-  bool Condition(ENUM_EA_CONDITION _cond) {
+  bool CheckCondition(ENUM_EA_CONDITION _cond) {
     MqlParam _args[] = {};
-    return EA::Condition(_cond, _args);
+    return EA::CheckCondition(_cond, _args);
   }
 
   /**
@@ -389,6 +475,12 @@ class EA {
    */
   bool ExecuteAction(ENUM_EA_ACTION _action, MqlParam &_args[]) {
     bool _result = true;
+    double arg1d = EMPTY_VALUE;
+    long arg1i = EMPTY;
+    if (ArraySize(_args) > 0) {
+      arg1d = _args[0].type == TYPE_DOUBLE ? _args[0].double_value : EMPTY_VALUE;
+      arg1i = _args[0].type == TYPE_INT ? _args[0].integer_value : EMPTY;
+    }
     switch (_action) {
       case EA_ACTION_DISABLE:
         estate.Enable(false);
@@ -396,9 +488,11 @@ class EA {
       case EA_ACTION_ENABLE:
         estate.Enable();
         return true;
+      case EA_ACTION_EXPORT_DATA:
+        DataExport((unsigned short)(arg1i != EMPTY ? arg1i : eparams.GetDataExport()));
+        return true;
       case EA_ACTION_TASKS_CLEAN:
-        Object::Delete(tasks);
-        tasks = new DictObject<short, Task>();
+        // @todo
         return tasks.Size() == 0;
       default:
         Logger().Error(StringFormat("Invalid EA action: %s!", EnumToString(_action), __FUNCTION_LINE__));
@@ -462,7 +556,7 @@ class EA {
   /**
    * Gets pointer to strategies.
    */
-  DictObject<ENUM_TIMEFRAMES, Dict<long, Strategy *>> *Strategies() const { return strats; }
+  DictObject<ENUM_TIMEFRAMES, DictStruct<long, Ref<Strategy>>> *Strategies() { return &strats; }
 
   /**
    * Gets pointer to symbol details.
@@ -474,14 +568,33 @@ class EA {
    */
   Terminal *Terminal() { return terminal; }
 
-  /**
-   * Gets pointer to terminal instance.
-   */
-  Trade *Trade(ENUM_TIMEFRAMES _tf) { return trade[_tf]; }
-
   /* Setters */
 
-  /* ... */
+  /* Virtual methods */
+
+  /**
+   * Event on new time periods.
+   */
+  virtual void OnPeriod() {
+    if ((estate.new_periods & DATETIME_MINUTE) != 0) {
+      // New minute started.
+    }
+    if ((estate.new_periods & DATETIME_HOUR) != 0) {
+      // New hour started.
+    }
+    if ((estate.new_periods & DATETIME_DAY) != 0) {
+      // New day started.
+    }
+    if ((estate.new_periods & DATETIME_WEEK) != 0) {
+      // New week started.
+    }
+    if ((estate.new_periods & DATETIME_MONTH) != 0) {
+      // New month started.
+    }
+    if ((estate.new_periods & DATETIME_YEAR) != 0) {
+      // New year started.
+    }
+  }
 
   /* Printer methods */
 
@@ -494,7 +607,5 @@ class EA {
     //_output += StringFormat("Strategies: %d", strats.Size());
     return _output;
   }
-
-  /* Other methods */
 };
 #endif  // EA_MQH

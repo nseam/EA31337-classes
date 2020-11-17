@@ -23,6 +23,7 @@
 // Includes.
 #include "../DictStruct.mqh"
 #include "../Indicator.mqh"
+#include "Indi_Price.mqh"
 
 #ifndef __MQL4__
 // Defines global functions (for MQL4 backward compability).
@@ -53,7 +54,11 @@ struct RSIParams : IndicatorParams {
   };
   void RSIParams(RSIParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
     this = _params;
-    _params.tf = _tf;
+    tf = _tf;
+    if (idstype == IDATA_INDICATOR && indi_data == NULL) {
+      PriceIndiParams price_params(_tf);
+      SetIndicatorData(new Indi_Price(price_params), true);
+    }
   };
 };
 
@@ -156,6 +161,12 @@ class Indi_RSI : public Indicator {
   static double iRSIOnIndicator(Indicator *_indi, Indi_RSI *_obj, string _symbol = NULL,
                                 ENUM_TIMEFRAMES _tf = PERIOD_CURRENT, unsigned int _period = 14,
                                 ENUM_APPLIED_PRICE _applied_price = PRICE_CLOSE, int _shift = 0) {
+    long _bar_time_curr = _obj.GetBarTime(_shift);
+    long _bar_time_prev = _obj.GetBarTime(_shift + 1);
+    if (fmin(_bar_time_curr, _bar_time_prev) < 0) {
+      // Return empty value on invalid bar time.
+      return EMPTY_VALUE;
+    }
     // Looks like MT uses specified period as start of the SMMA calculations.
     _obj.FeedHistoryEntries(_period);
 
@@ -170,7 +181,7 @@ class Indi_RSI : public Indicator {
     unsigned int data_position;
     double diff;
 
-    if (!_obj.aux_data.KeyExists(_obj.GetBarTime(_shift + 1), data_position)) {
+    if (!_obj.aux_data.KeyExists(_bar_time_prev, data_position)) {
       // No previous SMMA-based average gain and loss. Calculating SMA-based ones.
       double sum_gain = 0;
       double sum_loss = 0;
@@ -215,7 +226,11 @@ class Indi_RSI : public Indicator {
     new_data.avg_gain = (last_data.avg_gain * (_period - 1) + curr_gain) / _period;
     new_data.avg_loss = (last_data.avg_loss * (_period - 1) + curr_loss) / _period;
 
-    _obj.aux_data.Set(_obj.GetBarTime(_shift), new_data);
+    _obj.aux_data.Set(_bar_time_curr, new_data);
+
+    if (new_data.avg_loss == 0.0)
+      // @fixme Why 0 loss?
+      return 0;
 
     double rs = new_data.avg_gain / new_data.avg_loss;
 
@@ -310,6 +325,11 @@ class Indi_RSI : public Indicator {
     long _bar_time = GetBarTime(_shift);
     unsigned int _position;
     IndicatorDataEntry _entry;
+    if (_bar_time < 0) {
+      // Return empty value on invalid bar time.
+      _entry.value.SetValue(params.idvtype, EMPTY_VALUE);
+      return _entry;
+    }
     if (idata.KeyExists(_bar_time, _position)) {
       _entry = idata.GetByPos(_position);
     } else {
@@ -332,6 +352,12 @@ class Indi_RSI : public Indicator {
   }
 
   /* Getters */
+
+
+  /**
+   * Get indicator params.
+   */
+  RSIParams GetParams() { return params; }
 
   /**
    * Get period value.
@@ -366,5 +392,5 @@ class Indi_RSI : public Indicator {
   /**
    * Returns the indicator's value in plain format.
    */
-  string ToString(int _shift = 0) { return GetEntry(_shift).value.ToString(params.idvtype); }
+  string ToString(int _shift = 0) { return GetEntry(_shift).value.ToCSV(params.idvtype); }
 };

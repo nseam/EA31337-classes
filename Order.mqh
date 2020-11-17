@@ -5,18 +5,19 @@
 //+------------------------------------------------------------------+
 
 /*
- *  This file is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
-
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
-
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 /**
@@ -29,100 +30,13 @@
 #define ORDER_MQH
 
 // Includes.
+#include "Action.enum.h"
+#include "Convert.mqh"
 #include "Log.mqh"
+#include "Order.enum.h"
+#include "Order.struct.h"
 #include "String.mqh"
 #include "SymbolInfo.mqh"
-
-// Enums.
-// Order conditions.
-enum ENUM_ORDER_CONDITION {
-  ORDER_COND_NONE = 0,         // Empty condition.
-  ORDER_COND_IN_LOSS,          // When order in loss
-  ORDER_COND_IN_PROFIT,        // When order in profit
-  ORDER_COND_IS_CLOSED,        // When order is closed
-  ORDER_COND_IS_OPEN,          // When order is open
-  ORDER_COND_LIFETIME_GT_ARG,  // Order lifetime greater than argument value.
-  ORDER_COND_LIFETIME_LT_ARG,  // Order lifetime lesser than argument value.
-  ORDER_COND_PROP_EQ_ARG,      // Order property equals argument value.
-  ORDER_COND_PROP_GT_ARG,      // Order property greater than argument value.
-  ORDER_COND_PROP_LT_ARG,      // Order property lesser than argument value.
-  FINAL_ORDER_CONDITION_ENTRY
-};
-
-// Order actions.
-enum ENUM_ORDER_ACTION {
-  ORDER_ACTION_CLOSE = 1,  // Close the order.
-  ORDER_ACTION_OPEN,       // Open the order.
-  FINAL_ORDER_ACTION_ENTRY
-};
-
-#ifndef __MQL5__
-// Enums.
-// Direction of an open position (buy or sell).
-// @docs
-// - https://www.mql5.com/en/docs/constants/tradingconstants/positionproperties
-enum ENUM_POSITION_TYPE {
-  POSITION_TYPE_BUY,  // Buy position.
-  POSITION_TYPE_SELL  // Sell position.
-};
-// Defines the reason for order placing.
-enum ENUM_ORDER_REASON {
-  ORDER_REASON_CLIENT,  // The order was placed from a desktop terminal.
-  ORDER_REASON_EXPERT,  // The order was placed from an MQL5-program (e.g. by an EA or a script).
-  ORDER_REASON_MOBILE,  // The order was placed from a mobile application.
-  ORDER_REASON_SL,      // The order was placed as a result of Stop Loss activation.
-  ORDER_REASON_SO,      // The order was placed as a result of the Stop Out event.
-  ORDER_REASON_TP,      // The order was placed as a result of Take Profit activation.
-  ORDER_REASON_WEB,     // The order was placed from a web platform.
-};
-#else
-// Enums has sense only in MQL5.
-enum ENUM_ORDER_SELECT_TYPE {
-  ORDER_SELECT_TYPE_NONE,
-  ORDER_SELECT_TYPE_ACTIVE,
-  ORDER_SELECT_TYPE_HISTORY,
-  ORDER_SELECT_TYPE_DEAL,
-  ORDER_SELECT_TYPE_POSITION
-};
-
-enum ENUM_ORDER_SELECT_DATA_TYPE {
-  ORDER_SELECT_DATA_TYPE_INTEGER,
-  ORDER_SELECT_DATA_TYPE_DOUBLE,
-  ORDER_SELECT_DATA_TYPE_STRING
-};
-#endif
-#ifndef __MQL__
-// For functions OrderGet(), OrderGetDouble() and HistoryOrderGetDouble().
-// @docs https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-enum ENUM_ORDER_PROPERTY_DOUBLE {
-  ORDER_VOLUME_INITIAL,  // Order initial volume.
-  ORDER_VOLUME_CURRENT,  // Order current volume.
-  ORDER_PRICE_OPEN,      // Price specified in the order.
-  ORDER_SL,              // Stop Loss value.
-  ORDER_TP,              // Take Profit value.
-  ORDER_PRICE_CURRENT,   // The current price of the order symbol.
-  ORDER_PRICE_STOPLIMIT  // The Limit order price for the StopLimit order.
-};
-// A variety of properties for reading order values.
-// For functions OrderGet(), OrderGetInteger() and HistoryOrderGetInteger().
-// @docs https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-enum ENUM_ORDER_PROPERTY_INTEGER {
-  ORDER_TICKET,           // Order ticket. Unique number assigned to each order.
-  ORDER_TIME_SETUP,       // Order setup time.
-  ORDER_TYPE,             // Order type.
-  ORDER_STATE,            // Order state.
-  ORDER_TIME_EXPIRATION,  // Order expiration time.
-  ORDER_TIME_DONE,        // Order execution or cancellation time.
-  ORDER_TIME_SETUP_MSC,   // The time of placing an order for execution in milliseconds since 01.01.1970.
-  ORDER_TIME_DONE_MSC,    // Order execution/cancellation time in milliseconds since 01.01.1970.
-  ORDER_TYPE_FILLING,     // Order filling type.
-  ORDER_TYPE_TIME,        // Order lifetime.
-  ORDER_MAGIC,            // ID of an Expert Advisor that has placed the order.
-  ORDER_REASON,           // The reason or source for placing an order.
-  ORDER_POSITION_ID,      // Position identifier that is set to an order as soon as it is executed.
-  ORDER_POSITION_BY_ID    // Identifier of an opposite position used for closing by order ORDER_TYPE_CLOSE_BY.
-};
-#endif
 
 /* Defines for backward compatibility. */
 
@@ -162,162 +76,13 @@ enum ENUM_ORDER_PROPERTY_INTEGER {
 #define ORDER_REASON 23
 #endif
 
-/* Structs */
-#ifdef __MQL4__
-// The Structure of Results of a Trade Request Check (MqlTradeCheckResult).
-// The check is performed using the OrderCheck() function.
-// @docs https://www.mql5.com/en/docs/constants/structures/mqltradecheckresult
-struct MqlTradeCheckResult {
-  unsigned int retcode;  // Reply code.
-  double balance;        // Balance after the execution of the deal.
-  double equity;         // Equity after the execution of the deal.
-  double profit;         // Floating profit.
-  double margin;         // Margin requirements.
-  double margin_free;    // Free margin.
-  double margin_level;   // Margin level.
-  string comment;        // Comment to the reply code (description of the error).
-};
-#endif
-struct OrderParams {
-  bool dummy;                       // Whether order is dummy (fake) or not (real).
-  color color_arrow;                // Color of the opening arrow on the chart.
-  unsigned short refresh_rate;      // How often to refresh order values (in sec).
-  ENUM_ORDER_CONDITION cond_close;  // Close condition.
-  MqlParam cond_args[];             // Close condition argument.
-  // Special struct methods.
-  void OrderParams() : dummy(false), color_arrow(clrNONE), refresh_rate(10), cond_close(ORDER_COND_NONE){};
-  void OrderParams(bool _dummy) : dummy(_dummy), color_arrow(clrNONE), refresh_rate(10), cond_close(ORDER_COND_NONE){};
-  // Getters.
-  bool HasCloseCondition() { return cond_close > ORDER_COND_NONE; }
-  // Setters.
-  void SetConditionClose(ENUM_ORDER_CONDITION _cond, MqlParam &_args[]) {
-    cond_close = _cond;
-    ArrayResize(cond_args, ArraySize(_args));
-    for (int i = 0; i < ArraySize(_args); i++) {
-      cond_args[i] = _args[i];
-    }
-  }
-  void SetRefreshRate(unsigned short _value) { refresh_rate = _value; }
-};
-// Defines order data.
-struct OrderData {
-  unsigned long ticket;                  // Ticket number.
-  unsigned long magic;                   // Magic number.
-  ENUM_ORDER_STATE state;                // State.
-  double commission;                     // Commission.
-  double profit;                         // Profit.
-  double total_profit;                   // Total profit (profit minus fees).
-  double price_open;                     // Open price.
-  double price_close;                    // Close price.
-  double price_current;                  // Current price.
-  double price_stoplimit;                // The limit order price for the StopLimit order.
-  double swap;                           // Order cumulative swap.
-  datetime time_open;                    // Open time.
-  datetime time_close;                   // Close time.
-  double total_fees;                     // Total fees.
-  datetime expiration;                   // Order expiration time (for the orders of ORDER_TIME_SPECIFIED type).
-  double sl;                             // Current Stop loss level of the order.
-  double tp;                             // Current Take Profit level of the order.
-  ENUM_ORDER_TYPE type;                  // Type.
-  ENUM_ORDER_TYPE_FILLING type_filling;  // Filling type.
-  ENUM_ORDER_TYPE_TIME type_time;        // Lifetime (the order validity period).
-  ENUM_ORDER_REASON reason;              // Reason or source for placing an order.
-  datetime last_update;                  // Last update of order values.
-  unsigned int last_error;               // Last error code.
-  double volume;                         // Current volume.
-  string comment;                        // Comment.
-  string ext_id;                         // External trading system identifier.
-  string symbol;                         // Symbol of the order.
-  Ref<Log> logger;                       // Reference to logger.
-  OrderData()
-      : ticket(0),
-        magic(0),
-        state(ORDER_STATE_STARTED),
-        commission(0),
-        profit(0),
-        price_open(0),
-        price_close(0),
-        price_current(0),
-        price_stoplimit(0),
-        swap(0),
-        time_close(0),
-        time_open(0),
-        expiration(0),
-        sl(0),
-        tp(0),
-        last_update(0),
-        last_error(ERR_NO_ERROR),
-        volume(0) {}
-  // Getters.
-  // ...
-  // Setters.
-  void ProcessLastError() { last_error = fmax(last_error, Terminal::GetLastError()); }
-  void ResetError() {
-    ResetLastError();
-    last_error = ERR_NO_ERROR;
-  }
-  void SetComment(string _value) { comment = _value; }
-  void SetExpiration(datetime _exp) { expiration = _exp; }
-  void SetLastError(unsigned int _value) { last_error = _value; }
-  void SetLastUpdate(datetime _value) { last_update = _value; }
-  void SetMagicNo(unsigned long _value) { magic = _value; }
-  void SetPriceClose(double _value) { price_close = _value; }
-  void SetPriceCurrent(double _value) {
-    price_current = _value;
-    UpdateProfit();
-  }
-  void SetPriceOpen(double _value) { price_open = _value; }
-  void SetPriceStopLimit(double _value) { price_stoplimit = _value; }
-  void SetProfit(double _profit) { profit = _profit; }
-  void SetProfitTake(double _value) { tp = _value; }
-  void SetReason(long _reason) { reason = (ENUM_ORDER_REASON)_reason; }
-  void SetReason(ENUM_ORDER_REASON _reason) { reason = _reason; }
-  void SetState(ENUM_ORDER_STATE _state) { state = _state; }
-  void SetState(long _state) { state = (ENUM_ORDER_STATE)_state; }
-  void SetStopLoss(double _value) { sl = _value; }
-  void SetSymbol(string _value) { symbol = _value; }
-  void SetTicket(unsigned long _value) { ticket = _value; }
-  void SetTimeClose(datetime _value) { time_close = _value; }
-  void SetTimeOpen(datetime _value) { time_open = _value; }
-  void SetType(ENUM_ORDER_TYPE _type) { type = _type; }
-  void SetType(long _type) { type = (ENUM_ORDER_TYPE)_type; }
-  void SetTypeFilling(ENUM_ORDER_TYPE_FILLING _type) { type_filling = _type; }
-  void SetTypeFilling(long _type) { type_filling = (ENUM_ORDER_TYPE_FILLING)_type; }
-  void SetTypeTime(ENUM_ORDER_TYPE_TIME _value) { type_time = _value; }
-  void SetTypeTime(long _value) { type_time = (ENUM_ORDER_TYPE_TIME)_value; }
-  void SetVolume(double _value) { volume = _value; }
-  void UpdateProfit() { profit = price_open - price_current; }
-};
-
 #ifndef __MQLBUILD__
-// Order operation type.
-// @docs
-// - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-enum ENUM_ORDER_TYPE {
-  ORDER_TYPE_BUY,              // Market Buy order.
-  ORDER_TYPE_SELL,             // Market Sell order.
-  ORDER_TYPE_BUY_LIMIT,        // Buy Limit pending order.
-  ORDER_TYPE_SELL_LIMIT,       // Sell Limit pending order.
-  ORDER_TYPE_BUY_STOP,         // Buy Stop pending order
-  ORDER_TYPE_SELL_STOP,        // Sell Stop pending order.
-  ORDER_TYPE_BUY_STOP_LIMIT,   // Upon reaching the order price, a pending Buy Limit order is placed at the StopLimit
-                               // price.
-  ORDER_TYPE_SELL_STOP_LIMIT,  // Upon reaching the order price, a pending Sell Limit order is placed at the StopLimit
-                               // price.
-  ORDER_TYPE_CLOSE_BY          // Order to close a position by an opposite one.
-}
 // Defines.
 // Mode constants.
 // @see: https://docs.mql4.com/trading/orderselect
 #define MODE_TRADES 0
 #define MODE_HISTORY 1
 #endif
-
-// Defines modes for order type values (Take Profit and Stop Loss).
-enum ENUM_ORDER_TYPE_VALUE {
-  ORDER_TYPE_TP = ORDER_TP,
-  ORDER_TYPE_SL = ORDER_SL
-};
 
 /**
  * Class to provide methods to deal with the order.
@@ -349,6 +114,7 @@ class Order : public SymbolInfo {
   MqlTradeResult oresult;             // Trade Request Result.
 
 #ifdef __MQL5__
+  // Used for order selection in MQL5.
   static unsigned long selected_ticket_id;
   static ENUM_ORDER_SELECT_TYPE selected_ticket_type;
 #endif
@@ -400,7 +166,7 @@ class Order : public SymbolInfo {
    */
   ~Order() {}
 
-  Log* Logger() { return logger.Ptr(); }
+  Log *Logger() { return logger.Ptr(); }
 
   /* Getters */
 
@@ -438,8 +204,11 @@ class Order : public SymbolInfo {
    */
   bool IsClosed() {
     if (odata.time_close == 0 || odata.price_close == 0) {
-      odata.price_close = Order::OrderClosePrice(odata.ticket);
-      odata.time_close = Order::OrderCloseTime(odata.ticket);
+      OrderSelect();
+      odata.price_close = Order::OrderClosePrice();
+      if (odata.price_close > 0) {
+        odata.time_close = Order::OrderCloseTime();
+      }
     }
     return odata.time_close > 0 && odata.price_close > 0;
   }
@@ -447,8 +216,40 @@ class Order : public SymbolInfo {
   /**
    * Is order closed.
    */
-  bool IsOpen() {
-    return !IsClosed();
+  bool IsOpen() { return !IsClosed(); }
+
+  /**
+   * Check whether order is active and open.
+   */
+  bool IsOrderOpen() {
+    Update();
+    return OrderOpenTime() > 0 && !(OrderCloseTime() > 0);
+  }
+
+  /**
+   * Should order be closed.
+   *
+   * @return
+   *   Returns true when order should be closed, otherwise false.
+   */
+  bool ShouldCloseOrder() {
+    return oparams.HasCloseCondition() && Order::CheckCondition(oparams.cond_close, oparams.cond_close_args);
+  }
+
+  /* State checking */
+
+  /**
+   * Check whether order is selected and it is same as the class one.
+   */
+  bool IsSelected() {
+    unsigned long ticket_id = OrderTicket();
+    bool is_selected = (odata.ticket > 0 && ticket_id == odata.ticket);
+    ResetLastError();
+    return is_selected;
+  }
+  bool IsSelectedDummy() {
+    // @todo
+    return false;
   }
 
   /* Trade methods */
@@ -503,6 +304,460 @@ class Order : public SymbolInfo {
   }
 
   /* MT ORDER METHODS */
+
+  /* Order getters */
+
+  /**
+   * Returns close price of the currently selected order.
+   */
+  static double OrderClosePrice() {
+#ifdef __MQL4__
+    return ::OrderClosePrice();
+#else  // __MQL5__
+    // @docs https://www.mql5.com/en/docs/trading/HistoryDealGetDouble
+    double _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        const ENUM_DEAL_ENTRY _deal_entry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(_deal_ticket, DEAL_ENTRY);
+        if (_deal_entry == DEAL_ENTRY_OUT || _deal_entry == DEAL_ENTRY_OUT_BY) {
+          _result = HistoryDealGetDouble(_deal_ticket, DEAL_PRICE);
+          break;
+        }
+      }
+    }
+    return _result;
+#endif
+  }
+  double GetClosePrice() { return IsClosed() ? odata.price_close : 0; }
+
+  /**
+   * Returns open time of the currently selected order.
+   *
+   * @see
+   * - http://docs.mql4.com/trading/orderopentime
+   * - https://www.mql5.com/en/docs/trading/ordergetinteger
+   */
+  static datetime OrderOpenTime() {
+#ifdef __MQL4__
+    // http://docs.mql4.com/trading/orderopentime
+    return ::OrderOpenTime();
+#else
+    long _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        const ENUM_DEAL_ENTRY _deal_entry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(_deal_ticket, DEAL_ENTRY);
+        if (_deal_entry == DEAL_ENTRY_IN) {
+          _result = HistoryDealGetInteger(_deal_ticket, DEAL_TIME);
+          break;
+        }
+      }
+    }
+    return (datetime)_result;
+#endif
+  }
+  datetime GetOpenTime() {
+    if (odata.time_open == 0) {
+      OrderSelect();
+      odata.time_open = Order::OrderOpenTime();
+    }
+    return odata.time_open;
+  }
+
+  /*
+   * Returns close time of the currently selected order.
+   *
+   * @see:
+   * - https://docs.mql4.com/trading/orderclosetime
+   * - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
+   */
+  static datetime OrderCloseTime() {
+#ifdef __MQL4__
+    return ::OrderCloseTime();
+#else  // __MQL5__
+    // @docs https://www.mql5.com/en/docs/trading/historydealgetinteger
+    long _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        const ENUM_DEAL_ENTRY _deal_entry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(_deal_ticket, DEAL_ENTRY);
+        if (_deal_entry == DEAL_ENTRY_OUT || _deal_entry == DEAL_ENTRY_OUT_BY) {
+          _result = HistoryDealGetInteger(_deal_ticket, DEAL_TIME);
+          break;
+        }
+      }
+    }
+    return (datetime)_result;
+#endif
+  }
+  datetime GetCloseTime() { return IsClosed() ? odata.time_close : 0; }
+
+  /**
+   * Returns comment of the currently selected order.
+   *
+   * @see:
+   * - https://docs.mql4.com/trading/ordercomment
+   * - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
+   */
+  static string OrderComment() { return Order::OrderGetString(ORDER_COMMENT); }
+  string GetComment() { return odata.comment; }
+
+  /**
+   * Returns calculated commission of the currently selected order.
+   *
+   */
+  static double OrderCommission() {
+#ifdef __MQL4__
+    // https://docs.mql4.com/trading/ordercommission
+    return ::OrderCommission();
+#else  // __MQL5__
+    double _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        _result += _deal_ticket > 0 ? HistoryDealGetDouble(_deal_ticket, DEAL_COMMISSION) : 0;
+      }
+    }
+    return _result;
+#endif
+  }
+  double GetCommission() {
+    odata.commission = IsSelected() ? Order::OrderCommission() : odata.commission;
+    return odata.commission;
+  }
+
+  /**
+   * Returns total fees of the currently selected order.
+   *
+   */
+  static double OrderTotalFees() {
+#ifdef __MQL4__
+    return Order::OrderCommission() - Order::OrderSwap();
+#else  // __MQL5__
+    double _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        if (_deal_ticket > 0) {
+          _result += HistoryDealGetDouble(_deal_ticket, DEAL_COMMISSION);
+          _result += HistoryDealGetDouble(_deal_ticket, DEAL_FEE);
+          _result += HistoryDealGetDouble(_deal_ticket, DEAL_SWAP);
+        }
+      }
+    }
+    return _result;
+#endif
+  }
+  double GetTotalFees() {
+    if (!IsClosed()) {
+      OrderSelect();
+      odata.total_fees = Order::OrderTotalFees();
+    }
+    return odata.total_fees;
+  }
+
+  /**
+   * Returns expiration date of the selected pending order.
+   *
+   * @see
+   * - https://docs.mql4.com/trading/orderexpiration
+   * - https://www.mql5.com/en/docs/trading/ordergetinteger
+   */
+  static datetime OrderExpiration() { return (datetime)Order::OrderGetInteger(ORDER_TIME_EXPIRATION); }
+  datetime GetExpiration() { return odata.expiration; }
+
+  /**
+   * Returns amount of lots of the selected order.
+   *
+   * @see:
+   * - https://docs.mql4.com/trading/orderlots
+   * - https://www.mql5.com/en/docs/trading/ordergetdouble
+   */
+  static double OrderLots() {
+#ifdef __MQL4__
+    return ::OrderLots();
+#else
+    // @fixme: It returns 0.
+    return Order::OrderGetDouble(ORDER_VOLUME_CURRENT);
+#endif
+  }
+  double GetVolume() { return orequest.volume; }
+
+  /**
+   * Returns an identifying (magic) number of the currently selected order.
+   *
+   * @see
+   * - http://docs.mql4.com/trading/ordermagicnumber
+   * - https://www.mql5.com/en/docs/trading/ordergetinteger
+   */
+  static long OrderMagicNumber() { return Order::OrderGetInteger(ORDER_MAGIC); }
+  unsigned long GetMagicNumber() { return orequest.magic; }
+
+  /**
+   * Returns open price of the currently selected order.
+   *
+   * @see
+   * - http://docs.mql4.com/trading/orderopenprice
+   * - https://www.mql5.com/en/docs/trading/ordergetinteger
+   */
+  static double OrderOpenPrice() { return Order::OrderGetDouble(ORDER_PRICE_OPEN); }
+  double GetOpenPrice() { return odata.price_open; }
+
+  /**
+   * Returns profit of the currently selected order.
+   *
+   * @return
+   * Returns the net profit value (without swaps or commissions) for the selected order.
+   * For open orders, it is the current unrealized profit. For closed orders, it is the fixed profit.
+   *
+   * @see https://docs.mql4.com/trading/orderprofit
+   */
+  static double OrderProfit() {
+#ifdef __MQL4__
+    // https://docs.mql4.com/trading/orderprofit
+    return ::OrderProfit();
+#else
+    double _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        _result += _deal_ticket > 0 ? HistoryDealGetDouble(_deal_ticket, DEAL_PROFIT) : 0;
+      }
+    }
+    return _result;
+#endif
+  }
+  double GetProfit() {
+    Update(ORDER_PRICE_CURRENT);
+    return odata.profit;
+  }
+
+  /**
+   * Returns stop loss value of the currently selected order.
+   *
+   * @see http://docs.mql4.com/trading/orderstoploss
+   */
+  static double OrderStopLoss() { return Order::OrderGetDouble(ORDER_SL); }
+  double GetStopLoss(bool _refresh = true) {
+    Update(ORDER_SL);
+    return odata.sl;
+  }
+
+  /**
+   * Returns take profit value of the currently selected order.
+   *
+   * @return
+   * Returns take profit value of the currently selected order.
+   *
+   * @see
+   * - https://docs.mql4.com/trading/ordertakeprofit
+   * - https://www.mql5.com/en/docs/trading/ordergetinteger
+   */
+  static double OrderTakeProfit() { return Order::OrderGetDouble(ORDER_TP); }
+  double GetTakeProfit() {
+    Update(ORDER_TP);
+    return odata.tp;
+  }
+
+  /**
+   * Returns SL/TP value of the currently selected order.
+   */
+  static double GetOrderSLTP(ENUM_ORDER_PROPERTY_DOUBLE _mode) {
+    switch (_mode) {
+      case ORDER_SL:
+        return OrderStopLoss();
+      case ORDER_TP:
+        return OrderTakeProfit();
+    }
+    return NULL;
+  }
+
+  /**
+   * Returns cumulative swap of the currently selected order.
+   */
+  static double OrderSwap() {
+#ifdef __MQL4__
+    // https://docs.mql4.com/trading/orderswap
+    return ::OrderSwap();
+#else
+    double _result = 0;
+    unsigned long _ticket = Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        _result += _deal_ticket > 0 ? HistoryDealGetDouble(_deal_ticket, DEAL_SWAP) : 0;
+      }
+    }
+    return _result;
+#endif
+  }
+  double GetSwap() {
+    if (!IsClosed()) {
+      OrderSelect();
+      odata.swap = Order::OrderSwap();
+    }
+    return odata.swap;
+  }
+
+  /**
+   * Returns symbol name of the currently selected order.
+   *
+   * @see
+   * - https://docs.mql4.com/trading/ordersymbol
+   * - https://www.mql5.com/en/docs/trading/positiongetstring
+   */
+  static string OrderSymbol() {
+#ifdef __MQL4__
+    return ::OrderSymbol();
+#else
+    return Order::OrderGetString(ORDER_SYMBOL);
+#endif
+  }
+  string GetSymbol() { return orequest.symbol; }
+
+  /**
+   * Returns a ticket number of the currently selected order.
+   *
+   * It is a unique number assigned to each order.
+   *
+   * @see https://docs.mql4.com/trading/orderticket
+   * @see https://www.mql5.com/en/docs/trading/ordergetticket
+   */
+  static unsigned long OrderTicket() {
+#ifdef __MQL4__
+    return ::OrderTicket();
+#else
+    return selected_ticket_id;
+#endif
+  }
+  unsigned long GetTicket() const { return odata.ticket; }
+
+  /**
+   * Returns order operation type of the currently selected order.
+   *
+   * @see http://docs.mql4.com/trading/ordertype
+   */
+  static ENUM_ORDER_TYPE OrderType() {
+#ifdef __MQL4__
+    return (ENUM_ORDER_TYPE)::OrderType();
+#else
+    return (ENUM_ORDER_TYPE)Order::OrderGetInteger(ORDER_TYPE);
+#endif
+  }
+  ENUM_ORDER_TYPE GetType() { return odata.type; }
+
+  /**
+   * Returns order operation type of the currently selected order.
+   *
+   * Limit and stop orders are on a GTC basis unless an expiry time is set explicitly.
+   *
+   * @see https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
+   */
+  static ENUM_ORDER_TYPE_TIME OrderTypeTime() {
+// MT4 orders are usually on an FOK basis in that you get a complete fill or nothing.
+#ifdef __MQL4__
+    return ORDER_TIME_GTC;
+#else
+    // @fixme
+    return (ENUM_ORDER_TYPE_TIME)Order::OrderGetInteger(ORDER_TYPE_TIME);
+#endif
+  }
+
+  /**
+   * Returns the order position based on the ticket.
+   *
+   * It is set to an order as soon as it is executed.
+   * Each executed order results in a deal that opens or modifies an already existing position.
+   * The identifier of exactly this position is set to the executed order at this moment.
+   */
+  static unsigned long OrderGetPositionID() {
+#ifdef __MQL4__
+    unsigned long _ticket = ::OrderTicket();
+    for (int _pos = 0; _pos < OrdersTotal(); _pos++) {
+      if (::OrderSelect(_pos, SELECT_BY_POS, MODE_TRADES) && ::OrderTicket() == _ticket) {
+        return _pos;
+      }
+    }
+    return -1;
+#else  // __MQL5__
+    return Order::OrderGetInteger(ORDER_POSITION_ID);
+#endif
+  }
+  unsigned long GetPositionID() {
+#ifdef ORDER_POSITION_ID
+    if (odata.position_id == 0) {
+      OrderSelect();
+      Update(ORDER_POSITION_ID);
+    }
+#endif
+    return odata.position_id;
+  }
+
+  /**
+   * Returns the ticket of an opposite position.
+   *
+   * Used when a position is closed by an opposite one open for the same symbol in the opposite direction.
+   *
+   * @see:
+   * - https://www.mql5.com/en/docs/constants/structures/mqltraderequest
+   * - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
+   */
+  static unsigned long OrderGetPositionBy() {
+#ifdef __MQL4__
+    // @todo
+    /*
+    for (int _pos = 0; _pos < OrdersTotal(); _pos++) {
+      if (OrderSelect(_pos, SELECT_BY_POS, MODE_TRADES) && OrderTicket() == _ticket) {
+        return _pos;
+      }
+    }
+    */
+    return -1;
+#else  // __MQL5__
+    return Order::OrderGetInteger(ORDER_POSITION_BY_ID);
+#endif
+  }
+  unsigned long GetOrderPositionBy() {
+#ifdef ORDER_POSITION_BY_ID
+    if (odata.position_by_id == 0) {
+      OrderSelect();
+      Update(ORDER_POSITION_BY_ID);
+    }
+#endif
+    return odata.position_by_id;
+  }
+
+  /**
+   * Returns the ticket of a position in the list of open positions.
+   *
+   * @see https://www.mql5.com/en/docs/trading/positiongetticket
+   */
+  unsigned long PositionGetTicket(int _index) {
+#ifdef __MQL4__
+    if (::OrderSelect(_index, SELECT_BY_POS, MODE_TRADES)) {
+      return ::OrderTicket();
+    }
+    return -1;
+#else  // __MQL5__
+    return ::PositionGetTicket(_index);
+#endif
+  }
+
+  /* Order manipulation */
 
   /**
    * Closes opened order.
@@ -595,168 +850,6 @@ class Order : public SymbolInfo {
   }
 
   /**
-   * Returns close price of the currently selected order.
-   */
-  static double OrderClosePrice(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    if (_ticket > 0 && !OrderSelectByTicket(_ticket)) {
-      return 0;
-    }
-    return ::OrderClosePrice();
-#else  // __MQL5__
-    return ::PositionGetDouble(POSITION_PRICE_CURRENT);
-#endif
-  }
-  double GetClosePrice() { return odata.price_close; }
-
-  /**
-   * Returns open time of the currently selected order.
-   *
-   * @see
-   * - http://docs.mql4.com/trading/orderopentime
-   * - https://www.mql5.com/en/docs/trading/ordergetinteger
-   */
-  static datetime OrderOpenTime(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    // http://docs.mql4.com/trading/orderopentime
-    return ::OrderOpenTime();
-#else
-    long _result = 0;
-    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
-    if (HistorySelectByPosition(_ticket)) {
-      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
-        // https://www.mql5.com/en/docs/trading/historydealgetticket
-        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
-        const ENUM_DEAL_ENTRY _deal_entry = (ENUM_DEAL_ENTRY) HistoryDealGetInteger(_deal_ticket, DEAL_ENTRY);
-        if (_deal_entry == DEAL_ENTRY_IN) {
-          _result = HistoryDealGetInteger(_deal_ticket, DEAL_TIME);
-          break;
-        }
-      }
-    }
-    return (datetime) _result;
-#endif
-  }
-  datetime GetOpenTime() {
-    if (odata.time_close == 0) {
-      odata.time_open = OrderOpenTime(odata.ticket);
-    }
-    return odata.time_open;
-  }
-
-  /*
-   * Returns close time of the currently selected order.
-   *
-   * @see:
-   * - https://docs.mql4.com/trading/orderclosetime
-   * - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-   */
-  static datetime OrderCloseTime(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    if (_ticket > 0) {
-      OrderSelect(_ticket, SELECT_BY_TICKET, MODE_HISTORY);
-    }
-    return ::OrderCloseTime();
-#else  // __MQL5__
-    // @docs https://www.mql5.com/en/docs/trading/historydealgetinteger
-    long _result = 0;
-    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
-    if (HistorySelectByPosition(_ticket)) {
-      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
-        // https://www.mql5.com/en/docs/trading/historydealgetticket
-        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
-        const ENUM_DEAL_ENTRY _deal_entry = (ENUM_DEAL_ENTRY) HistoryDealGetInteger(_deal_ticket, DEAL_ENTRY);
-        if (_deal_entry == DEAL_ENTRY_OUT || _deal_entry == DEAL_ENTRY_OUT_BY) {
-          _result = HistoryDealGetInteger(_deal_ticket, DEAL_TIME);
-          break;
-        }
-      }
-    }
-    return 0;
-#endif
-  }
-  datetime GetCloseTime() {
-    if (!IsClosed()) {
-      odata.time_close = Order::OrderCloseTime(odata.ticket);
-    }
-    return odata.time_close;
-  }
-
-  /**
-   * Returns comment of the currently selected order.
-   *
-   * @see:
-   * - https://docs.mql4.com/trading/ordercomment
-   * - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-   */
-  static string OrderComment() {
-#ifdef __MQL4__
-    return ::OrderComment();
-#else  // __MQL5__
-    return Order::OrderGetString(ORDER_COMMENT);
-#endif
-  }
-
-  /**
-   * Returns calculated commission of the currently selected order.
-   *
-   */
-  static double OrderCommission(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    // https://docs.mql4.com/trading/ordercommission
-    return ::OrderCommission();
-#else  // __MQL5__
-    double _result = 0;
-    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
-    if (HistorySelectByPosition(_ticket)) {
-      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
-        // https://www.mql5.com/en/docs/trading/historydealgetticket
-        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
-        _result += _deal_ticket > 0 ? HistoryDealGetDouble(_deal_ticket, DEAL_COMMISSION) : 0;
-      }
-    }
-    return _result;
-#endif
-  }
-  double GetCommission() {
-    if (!IsClosed()) {
-      odata.commission = Order::OrderCommission(odata.ticket);
-    }
-    return odata.commission;
-  }
-
-  /**
-   * Returns total fees of the currently selected order.
-   *
-   */
-  static double OrderTotalFees(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    return Order::OrderCommission() - Order::OrderSwap();
-#else  // __MQL5__
-    double _result = 0;
-    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
-    if (HistorySelectByPosition(_ticket)) {
-      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
-        // https://www.mql5.com/en/docs/trading/historydealgetticket
-        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
-        if (_deal_ticket > 0) {
-          _result += HistoryDealGetDouble(_deal_ticket, DEAL_COMMISSION);
-          _result += HistoryDealGetDouble(_deal_ticket, DEAL_FEE);
-          _result += HistoryDealGetDouble(_deal_ticket, DEAL_SWAP);
-        }
-      }
-    }
-    return _result;
-#endif
-  }
-  double GetTotalFees() {
-    if (!IsClosed()) {
-      odata.total_fees = Order::OrderTotalFees(odata.ticket);
-    }
-    return odata.total_fees;
-  }
-
-  /**
    * Deletes previously opened pending order.
    *
    * @see: https://docs.mql4.com/trading/orderdelete
@@ -776,53 +869,6 @@ class Order : public SymbolInfo {
 #endif
   }
   bool OrderDelete() { return Order::OrderDelete(GetTicket()); }
-
-  /**
-   * Returns expiration date of the selected pending order.
-   *
-   * @see
-   * - https://docs.mql4.com/trading/orderexpiration
-   * - https://www.mql5.com/en/docs/trading/ordergetinteger
-   */
-  static datetime OrderExpiration() {
-#ifdef __MQL4__
-    return ::OrderExpiration();
-#else
-    return (datetime)Order::OrderGetInteger(ORDER_TIME_EXPIRATION);
-#endif
-  }
-
-  /**
-   * Returns amount of lots of the selected order.
-   *
-   * @see:
-   * - https://docs.mql4.com/trading/orderlots
-   * - https://www.mql5.com/en/docs/trading/ordergetdouble
-   */
-  static double OrderLots() {
-#ifdef __MQL4__
-    return ::OrderLots();
-#else
-    return Order::OrderGetDouble(ORDER_VOLUME_CURRENT);
-#endif
-  }
-  double GetVolume() { return orequest.volume = IsSelected() ? OrderLots() : orequest.volume; }
-
-  /**
-   * Returns an identifying (magic) number of the currently selected order.
-   *
-   * @see
-   * - http://docs.mql4.com/trading/ordermagicnumber
-   * - https://www.mql5.com/en/docs/trading/ordergetinteger
-   */
-  static long OrderMagicNumber() {
-#ifdef __MQL4__
-    return (long)::OrderMagicNumber();
-#else
-    return Order::OrderGetInteger(ORDER_MAGIC);
-#endif
-  }
-  unsigned long GetMagicNumber() { return orequest.magic = IsSelected() ? OrderMagicNumber() : orequest.magic; }
 
   /**
    * Modification of characteristics of the previously opened or pending orders.
@@ -868,6 +914,7 @@ class Order : public SymbolInfo {
       odata.tp = _tp;
       odata.expiration = _expiration;
     } else if (Order::OrderSelect(oresult.order, SELECT_BY_TICKET, MODE_HISTORY)) {
+      ResetLastError();
       odata.time_close = GetCloseTime();
       _result = false;
     } else {
@@ -875,56 +922,6 @@ class Order : public SymbolInfo {
       Logger().AddLastError(__FUNCTION_LINE__);
     }
     return _result;
-  }
-
-  /**
-   * Returns open price of the currently selected order.
-   *
-   * @see
-   * - http://docs.mql4.com/trading/orderopenprice
-   * - https://www.mql5.com/en/docs/trading/ordergetinteger
-   */
-  static double OrderOpenPrice() {
-#ifdef __MQL4__
-    return ::OrderOpenPrice();
-#else
-    return Order::OrderGetDouble(ORDER_PRICE_OPEN);
-#endif
-  }
-  double GetOpenPrice() {
-    Update(ORDER_PRICE_OPEN);
-    return odata.price_open;
-  }
-
-  /**
-   * Returns profit of the currently selected order.
-   *
-   * @return
-   * Returns the net profit value (without swaps or commissions) for the selected order.
-   * For open orders, it is the current unrealized profit. For closed orders, it is the fixed profit.
-   *
-   * @see https://docs.mql4.com/trading/orderprofit
-   */
-  static double OrderProfit(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    // https://docs.mql4.com/trading/orderprofit
-    return ::OrderProfit();
-#else
-    double _result = 0;
-    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
-    if (HistorySelectByPosition(_ticket)) {
-      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
-        // https://www.mql5.com/en/docs/trading/historydealgetticket
-        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
-        _result += _deal_ticket > 0 ? HistoryDealGetDouble(_deal_ticket, DEAL_PROFIT) : 0;
-      }
-    }
-    return _result;
-#endif
-  }
-  double GetProfit() {
-    Update(ORDER_PRICE_CURRENT);
-    return odata.profit;
   }
 
   /**
@@ -1106,8 +1103,11 @@ class Order : public SymbolInfo {
                                     oparams.color_arrow   // Color.
     );
     oresult.retcode = _result == -1 ? TRADE_RETCODE_ERROR : TRADE_RETCODE_DONE;
+
+    int error = GetLastError();
     // In MQL4 there is no difference in selecting various types of tickets.
     oresult.deal = _result;
+    oresult.order = _result;
     odata.ticket = _result;
     return _result;
 #else
@@ -1223,212 +1223,6 @@ class Order : public SymbolInfo {
     return _result_check.retcode == ERR_NO_ERROR;
   }
 
-  /**
-   * Returns stop loss value of the currently selected order.
-   *
-   * @see http://docs.mql4.com/trading/orderstoploss
-   */
-  static double OrderStopLoss() {
-#ifdef __MQL4__
-    return ::OrderStopLoss();
-#else
-    return ::PositionGetDouble(POSITION_SL);
-#endif
-  }
-  double GetStopLoss(bool _refresh = true) {
-    Update(ORDER_SL);
-    return odata.sl;
-  }
-
-  /**
-   * Returns take profit value of the currently selected order.
-   *
-   * @return
-   * Returns take profit value of the currently selected order.
-   *
-   * @see
-   * - https://docs.mql4.com/trading/ordertakeprofit
-   * - https://www.mql5.com/en/docs/trading/ordergetinteger
-   */
-  static double OrderTakeProfit() {
-#ifdef __MQL4__
-    return ::OrderTakeProfit();
-#else
-    return Order::OrderGetDouble(ORDER_TP);
-#endif
-  }
-  double GetTakeProfit() {
-    Update(ORDER_TP);
-    return odata.tp;
-  }
-
-  /**
-   * Returns SL/TP value of the currently selected order.
-   */
-  static double GetOrderSLTP(ENUM_ORDER_PROPERTY_DOUBLE _mode) {
-    switch (_mode) {
-      case ORDER_SL:
-        return OrderStopLoss();
-      case ORDER_TP:
-        return OrderTakeProfit();
-    }
-    return NULL;
-  }
-
-  /**
-   * Returns cumulative swap of the currently selected order.
-   */
-  static double OrderSwap(unsigned long _ticket = 0) {
-#ifdef __MQL4__
-    // https://docs.mql4.com/trading/orderswap
-    return ::OrderSwap();
-#else
-    double _result = 0;
-    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
-    if (HistorySelectByPosition(_ticket)) {
-      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
-        // https://www.mql5.com/en/docs/trading/historydealgetticket
-        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
-        _result += _deal_ticket > 0 ? HistoryDealGetDouble(_deal_ticket, DEAL_SWAP) : 0;
-      }
-    }
-    return _result;
-#endif
-  }
-  double GetSwap() {
-    if (!IsClosed()) {
-      odata.swap = Order::OrderSwap(odata.ticket);
-    }
-    return odata.swap;
-  }
-
-  /**
-   * Returns symbol name of the currently selected order.
-   *
-   * @see
-   * - https://docs.mql4.com/trading/ordersymbol
-   * - https://www.mql5.com/en/docs/trading/positiongetstring
-   */
-  static string OrderSymbol() {
-#ifdef __MQL4__
-    return ::OrderSymbol();
-#else
-    return Order::OrderGetString(ORDER_SYMBOL);
-#endif
-  }
-  string GetSymbol() { return orequest.symbol; }
-
-  /**
-   * Returns a ticket number of the currently selected order.
-   *
-   * It is a unique number assigned to each order.
-   *
-   * @see https://docs.mql4.com/trading/orderticket
-   * @see https://www.mql5.com/en/docs/trading/ordergetticket
-   */
-  static unsigned long OrderTicket() {
-#ifdef __MQL4__
-    return ::OrderTicket();
-#else
-    return selected_ticket_id;
-#endif
-  }
-  unsigned long GetTicket() { return odata.ticket; }
-
-  /**
-   * Returns order operation type of the currently selected order.
-   *
-   * @see http://docs.mql4.com/trading/ordertype
-   */
-  static ENUM_ORDER_TYPE OrderType() {
-#ifdef __MQL4__
-    return (ENUM_ORDER_TYPE)::OrderType();
-#else
-    return (ENUM_ORDER_TYPE)Order::OrderGetInteger(ORDER_TYPE);
-#endif
-  }
-
-  /**
-   * Returns order operation type of the currently selected order.
-   *
-   * Limit and stop orders are on a GTC basis unless an expiry time is set explicitly.
-   *
-   * @see https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-   */
-  static ENUM_ORDER_TYPE_TIME OrderTypeTime() {
-// MT4 orders are usually on an FOK basis in that you get a complete fill or nothing.
-#ifdef __MQL4__
-    return ORDER_TIME_GTC;
-#else
-    return (ENUM_ORDER_TYPE_TIME)Order::OrderGetInteger(ORDER_TYPE);
-#endif
-  }
-
-  /**
-   * Returns the order position based on the ticket.
-   *
-   * It is set to an order as soon as it is executed.
-   * Each executed order results in a deal that opens or modifies an already existing position.
-   * The identifier of exactly this position is set to the executed order at this moment.
-   */
-  static unsigned long OrderGetPositionID(unsigned long _ticket) {
-#ifdef __MQL4__
-    for (int _pos = 0; _pos < OrdersTotal(); _pos++) {
-      if (OrderSelect(_pos, SELECT_BY_POS, MODE_TRADES) && OrderTicket() == _ticket) {
-        return _pos;
-      }
-    }
-    return -1;
-#else  // __MQL5__
-    OrderSelect(_ticket, SELECT_BY_TICKET, MODE_TRADES);
-    return Order::OrderGetInteger(ORDER_POSITION_ID);
-#endif
-  }
-  unsigned long OrderGetPositionID() { return OrderGetPositionID(GetTicket()); }
-
-  /**
-   * Returns the ticket of an opposite position.
-   *
-   * Used when a position is closed by an opposite one open for the same symbol in the opposite direction.
-   *
-   * @see:
-   * - https://www.mql5.com/en/docs/constants/structures/mqltraderequest
-   * - https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
-   */
-  static unsigned long OrderGetPositionBy(unsigned long _ticket) {
-#ifdef __MQL4__
-    // @todo
-    /*
-    for (int _pos = 0; _pos < OrdersTotal(); _pos++) {
-      if (OrderSelect(_pos, SELECT_BY_POS, MODE_TRADES) && OrderTicket() == _ticket) {
-        return _pos;
-      }
-    }
-    */
-    return -1;
-#else  // __MQL5__
-    OrderSelect(_ticket, SELECT_BY_TICKET, MODE_TRADES);
-    return Order::OrderGetInteger(ORDER_POSITION_BY_ID);
-#endif
-  }
-  unsigned long OrderGetPositionBy() { return OrderGetPositionBy(GetTicket()); }
-
-  /**
-   * Returns the ticket of a position in the list of open positions.
-   *
-   * @see https://www.mql5.com/en/docs/trading/positiongetticket
-   */
-  unsigned long PositionGetTicket(int _index) {
-#ifdef __MQL4__
-    if (::OrderSelect(_index, SELECT_BY_POS, MODE_TRADES)) {
-      return ::OrderTicket();
-    }
-    return -1;
-#else  // __MQL5__
-    return PositionGetTicket(_index);
-#endif
-  }
-
   /* Order selection methods */
 
   /**
@@ -1439,14 +1233,21 @@ class Order : public SymbolInfo {
    *  @see http://docs.mql4.com/trading/orderselect
    */
   static bool OrderSelect(unsigned long _index, int select, int pool = MODE_TRADES) {
+    ResetLastError();
 #ifdef __MQL4__
     return ::OrderSelect((int)_index, select, pool);
 #else
+    bool _result = false;
     if (select == SELECT_BY_POS) {
       if (pool == MODE_TRADES) {
-        // Returns ticket of a corresponding order and selects the order for further working with it using functions.
-        // Declaration: unsigned long OrderGetTicket (int _index (Number in the list of orders)).
-        return OrderGetTicket((int)_index) != 0;
+        if (::PositionGetTicket((int)_index)) {
+          selected_ticket_type = ORDER_SELECT_TYPE_POSITION;
+        } else if (::OrderGetTicket((int)_index)) {
+          selected_ticket_type = ORDER_SELECT_TYPE_ACTIVE;
+        } else {
+          selected_ticket_type = ORDER_SELECT_TYPE_NONE;
+          selected_ticket_id = 0;
+        }
       } else if (pool == MODE_HISTORY) {
         // The HistoryOrderGetTicket(_index) return the ticket of the historical order, by its _index from the cache of
         // the historical orders (not from the terminal base!). The obtained ticket can be used in the
@@ -1454,22 +1255,18 @@ class Order : public SymbolInfo {
         // case of success. Recall that the value, returned from HistoryOrdersTotal() depends on the number of orders
         // in the cache.
         unsigned long _ticket_id = HistoryOrderGetTicket((int)_index);
-        if (_ticket_id == 0) {
-          return false;
-        }
-        // For MQL5-targeted code, we need to call HistoryOrderGetTicket(_index), so user may use
-        // HistoryOrderGetTicket(), HistoryOrderGetDouble() and so on.
-        if (!HistoryOrderSelect(_ticket_id)) {
-          return false;
+        if (_ticket_id != 0) {
+          selected_ticket_type = ORDER_SELECT_TYPE_HISTORY;
+        } else if (::HistoryOrderSelect(_ticket_id)) {
+          selected_ticket_type = ORDER_SELECT_TYPE_HISTORY;
+        } else {
+          selected_ticket_type = ORDER_SELECT_TYPE_NONE;
+          selected_ticket_id = 0;
         }
 
-        // For MQL4-legacy code, we also need to call OrderSelect(ticket), as user may still use OrderTicket(),
-        // OrderType() and so on.
-        return ::OrderSelect(_ticket_id);
+        selected_ticket_id = selected_ticket_type == ORDER_SELECT_TYPE_NONE ? 0 : _ticket_id;
       }
     } else if (select == SELECT_BY_TICKET) {
-      unsigned int num_orders = OrdersTotal();
-
       if (::OrderSelect(_index)) {
         selected_ticket_type = ORDER_SELECT_TYPE_ACTIVE;
       } else if (::HistoryOrderSelect(_index)) {
@@ -1481,51 +1278,55 @@ class Order : public SymbolInfo {
       } else {
         selected_ticket_type = ORDER_SELECT_TYPE_NONE;
         selected_ticket_id = 0;
-        return false;
       }
 
       selected_ticket_id = selected_ticket_type == ORDER_SELECT_TYPE_NONE ? 0 : _index;
-      ResetLastError();
-      return true;
-    }
+    } else {
 #ifdef __debug__
-    PrintFormat("%s: Error: Possible values for 'select' parameters are: SELECT_BY_POS or SELECT_BY_HISTORY.",
-                __FUNCTION_LINE__);
+      PrintFormat("%s: Possible values for 'select' parameters are: SELECT_BY_POS or SELECT_BY_HISTORY.",
+                  __FUNCTION_LINE__);
 #endif
-    return false;
+    }
+    _result = selected_ticket_type != ORDER_SELECT_TYPE_NONE;
+
+    if (_result) {
+      ResetLastError();
+    }
+    return _result;
 #endif
   }
+
+  /**
+   * Tries to select an order to work with.
+   *
+   * The function selects an order for further processing.
+
+   * Same as OrderSelect(), it will just perform ResetLastError().
+   *
+   * @see http://docs.mql4.com/trading/orderselect
+   */
+  static bool TryOrderSelect(unsigned long _index, int select, int pool = MODE_TRADES) {
+    bool result = OrderSelect(_index, select, pool);
+
+    ResetLastError();
+
+    return result;
+  }
+
   static bool OrderSelectByTicket(unsigned long _ticket) {
-    return Order::OrderSelect(_ticket, SELECT_BY_TICKET, MODE_TRADES)
-      || Order::OrderSelect(_ticket, SELECT_BY_TICKET, MODE_HISTORY);
+    return Order::OrderSelect(_ticket, SELECT_BY_TICKET, MODE_TRADES) ||
+           Order::OrderSelect(_ticket, SELECT_BY_TICKET, MODE_HISTORY);
   }
+
+  static bool TryOrderSelectByTicket(unsigned long _ticket) {
+    return Order::TryOrderSelect(_ticket, SELECT_BY_TICKET, MODE_TRADES) ||
+           Order::TryOrderSelect(_ticket, SELECT_BY_TICKET, MODE_HISTORY);
+  }
+
   bool OrderSelect() { return !IsSelected() ? Order::OrderSelectByTicket(odata.ticket) : true; }
+  bool TryOrderSelect() { return !IsSelected() ? Order::TryOrderSelectByTicket(odata.ticket) : true; }
   bool OrderSelectDummy() { return !IsSelectedDummy() ? false : true; }  // @todo
   bool OrderSelectHistory() { return OrderSelect(odata.ticket, MODE_HISTORY); }
-
-  /* State checking */
-
-  /**
-   * Check whether order is selected and it is same as the class one.
-   */
-  bool IsSelected() {
-    unsigned long ticket_id = OrderTicket();
-    bool is_selected = (odata.ticket > 0 && ticket_id == odata.ticket);
-    ResetLastError();
-    return is_selected;
-  }
-  bool IsSelectedDummy() {
-    // @todo
-    return false;
-  }
-
-  /**
-   * Check whether order is active and open.
-   */
-  bool IsOrderOpen() {
-    Update();
-    return OrderOpenTime() > 0 && !(OrderCloseTime() > 0);
-  }
 
   /* Setters */
 
@@ -1542,46 +1343,59 @@ class Order : public SymbolInfo {
       return false;
     }
     odata.ResetError();
-    if (IsOpen() && CheckCloseCondition()) {
-      MqlParam _args[] = {{TYPE_STRING, 0, 0, "Close condition"}};
-#ifdef __MQL__
-      _args[0].string_value += StringFormat(": %s", EnumToString(oparams.cond_close));
-#endif
-      return Order::ExecuteAction(ORDER_ACTION_CLOSE, _args);
-    }
 
     // IsOpen() could end up with "Position not found" error.
     ResetLastError();
 
-    // Update integer values.
-    odata.SetTicket(Order::GetTicket());
-    Update(ORDER_TIME_EXPIRATION);
-    Update(ORDER_MAGIC);
-    Update(ORDER_STATE);
-    Update(ORDER_TIME_SETUP);
-    Update(ORDER_TYPE);
-    Update(ORDER_TYPE_TIME);
-    Update(ORDER_TYPE_FILLING);
+    // Checks if order is updated for the first time.
+    bool _is_init = odata.price_open == 0 || odata.time_open == 0;
 
-    // Update double values.
+    // Update integer values.
+    if (_is_init) {
+      // Some values needs to be updated only once.
+      // Update integer values.
+      Update(ORDER_TIME_EXPIRATION);
+      Update(ORDER_MAGIC);
+      Update(ORDER_STATE);
+      Update(ORDER_TIME_SETUP);
+      Update(ORDER_TIME_SETUP_MSC);
+      Update(ORDER_TYPE);
+      Update(ORDER_TYPE_TIME);
+      Update(ORDER_TYPE_FILLING);
+#ifdef ORDER_POSITION_ID
+      Update(ORDER_POSITION_ID);
+#endif
+#ifdef ORDER_POSITION_BY_ID
+      Update(ORDER_POSITION_BY_ID);
+#endif
+      // Update double values.
+      Update(ORDER_PRICE_OPEN);
+      Update(ORDER_VOLUME_INITIAL);
+      // Update string values.
+      Update(ORDER_SYMBOL);
+      Update(ORDER_COMMENT);
+    }
+
+    // Update dynamic double values.
     Update(ORDER_PRICE_CURRENT);
-    Update(ORDER_PRICE_OPEN);
     Update(ORDER_PRICE_STOPLIMIT);
     Update(ORDER_SL);
     Update(ORDER_TP);
     Update(ORDER_VOLUME_CURRENT);
 
-    // Update string values.
-    Update(ORDER_SYMBOL);
-    Update(ORDER_COMMENT);
-
     // TODO
+    // odata.SetTicket(Order::GetTicket());
     // odata.close_price =
     // order.time_close  = OrderCloseTime();           // Close time.
     // order.filling     = GetOrderFilling();          // Order execution type.
     // order.comment     = new String(OrderComment()); // Order comment.
     // order.position    = OrderGetPositionID();       // Position ticket.
     // order.position_by = OrderGetPositionBy();       // The ticket of an opposite position.
+
+    // Process conditions.
+    if (!_is_init) {
+      ProcessConditions();
+    }
 
     odata.last_update = TimeCurrent();
     odata.ProcessLastError();
@@ -1599,10 +1413,8 @@ class Order : public SymbolInfo {
     if (!OrderSelectDummy()) {
       return false;
     }
-    if (IsOpen() && CheckCloseCondition()) {
-      MqlParam _args[] = {{TYPE_STRING, 0, 0, "Close condition"}};
-      return Order::ExecuteAction(ORDER_ACTION_CLOSE, _args);
-    }
+    // Process conditions.
+    ProcessConditions();
     // @todo: UpdateDummy(XXX);?
     odata.ResetError();
     odata.last_update = TimeCurrent();
@@ -1647,6 +1459,16 @@ class Order : public SymbolInfo {
       case ORDER_MAGIC:
         odata.SetMagicNo(Order::OrderGetInteger(ORDER_MAGIC));
         break;
+#ifdef ORDER_POSITION_ID
+      case ORDER_POSITION_ID:
+        odata.position_id = Order::OrderGetInteger(ORDER_POSITION_ID);
+        break;
+#endif
+#ifdef ORDER_POSITION_BY_ID
+      case ORDER_POSITION_BY_ID:
+        odata.position_by_id = Order::OrderGetInteger(ORDER_POSITION_BY_ID);
+        break;
+#endif
       case (ENUM_ORDER_PROPERTY_INTEGER)ORDER_REASON:
         odata.SetReason(Order::OrderGetInteger((ENUM_ORDER_PROPERTY_INTEGER)ORDER_REASON));
         break;
@@ -1660,13 +1482,13 @@ class Order : public SymbolInfo {
       case ORDER_TIME_DONE:
         odata.SetTimeOpen(Order::OrderGetInteger(ORDER_TIME_DONE));
         break;
-      case ORDER_TIME_SETUP:
+      case ORDER_TIME_SETUP:  // Note: In MT5 it conflicts with ORDER_TICKET.
         // Order setup time.
         odata.SetTimeOpen(Order::OrderGetInteger(ORDER_TIME_SETUP));
         break;
       case ORDER_TIME_SETUP_MSC:
         // The time of placing an order for execution in milliseconds since 01.01.1970.
-        odata.SetTimeOpen(Order::OrderGetInteger(ORDER_TIME_SETUP_MSC));
+        odata.SetTimeOpen(Order::OrderGetInteger(ORDER_TIME_SETUP_MSC) / 1000);
         break;
       case ORDER_TYPE:
         odata.SetType(Order::OrderGetInteger(ORDER_TYPE));
@@ -1692,7 +1514,7 @@ class Order : public SymbolInfo {
         odata.SetComment(Order::OrderGetString(ORDER_COMMENT));
         break;
 #ifdef ORDER_EXTERNAL_ID
-      case (ENUM_ORDER_PROPERTY_STRING) ORDER_EXTERNAL_ID:
+      case (ENUM_ORDER_PROPERTY_STRING)ORDER_EXTERNAL_ID:
         // Not supported right now.
         // odata.SetExternalId(Order::OrderGetString(ORDER_EXTERNAL_ID));
         return false;
@@ -1747,9 +1569,7 @@ class Order : public SymbolInfo {
    * Returns the gross profit value (including swaps, commissions and fees/taxes)
    * for the selected order, in the base currency.
    */
-  static double GetOrderTotalProfit() {
-    return Order::OrderProfit() - Order::OrderTotalFees();
-  }
+  static double GetOrderTotalProfit() { return Order::OrderProfit() - Order::OrderTotalFees(); }
   double GetTotalProfit() {
     if (odata.total_profit == 0 || !IsClosed()) {
       odata.total_profit = Order::GetOrderTotalProfit();
@@ -1838,6 +1658,8 @@ class Order : public SymbolInfo {
     return OrderDirection(_cmd) > 0 ? cbuy : csell;
   }
 
+  /* Order property getters */
+
   /**
    * Returns the requested property of an order.
    *
@@ -1853,11 +1675,11 @@ class Order : public SymbolInfo {
    *
    */
   static long OrderGetInteger(ENUM_ORDER_PROPERTY_INTEGER property_id) {
-#ifdef __MQL5__
+#ifdef __MQL4__
+    return ::OrderGetInteger(property_id);
+#else
     long result;
     return OrderGetParam(property_id, selected_ticket_type, ORDER_SELECT_DATA_TYPE_INTEGER, result);
-#else
-    return ::OrderGetInteger(property_id);
 #endif
   }
 
@@ -1876,11 +1698,11 @@ class Order : public SymbolInfo {
    *
    */
   static double OrderGetDouble(ENUM_ORDER_PROPERTY_DOUBLE property_id) {
-#ifdef __MQL5__
+#ifdef __MQL4__
+    return ::OrderGetDouble(property_id);
+#else
     double result;
     return OrderGetParam(property_id, selected_ticket_type, ORDER_SELECT_DATA_TYPE_DOUBLE, result);
-#else
-    return ::OrderGetDouble(property_id);
 #endif
   }
 
@@ -1899,16 +1721,15 @@ class Order : public SymbolInfo {
    *
    */
   static string OrderGetString(ENUM_ORDER_PROPERTY_STRING property_id) {
-#ifdef __MQL5__
+#ifdef __MQL4__
+    return ::OrderGetString(property_id);
+#else
     string result;
     return OrderGetParam(property_id, selected_ticket_type, ORDER_SELECT_DATA_TYPE_STRING, result);
-#else
-    return ::OrderGetString(property_id);
 #endif
   }
 
 #ifdef __MQL5__
-
   /**
    * Returns the requested property for an order.
    *
@@ -2298,8 +2119,11 @@ class Order : public SymbolInfo {
         return (long)odata.magic;
       case ORDER_STATE:
         return odata.state;
-      case ORDER_TICKET:
+#ifndef __MQL__
+      case ORDER_TICKET:  // Note: In MT, the value conflicts with ORDER_TIME_SETUP.
         return (long)odata.ticket;
+#endif
+      case ORDER_TIME_SETUP:  // Note: In MT5, the value conflicts with ORDER_TICKET.
       case ORDER_TIME_DONE:
       case ORDER_TIME_DONE_MSC:
         // Order execution or cancellation time.
@@ -2348,7 +2172,7 @@ class Order : public SymbolInfo {
       case ORDER_SYMBOL:
         return odata.symbol;
 #ifdef ORDER_EXTERNAL_ID
-      case (ENUM_ORDER_PROPERTY_STRING) ORDER_EXTERNAL_ID:
+      case (ENUM_ORDER_PROPERTY_STRING)ORDER_EXTERNAL_ID:
         return odata.ext_id;
 #endif
     }
@@ -2356,6 +2180,21 @@ class Order : public SymbolInfo {
   }
 
   /* Conditions and actions */
+
+  /**
+   * Process order conditions.
+   */
+  bool ProcessConditions() {
+    bool _result = true;
+    if (IsOpen() && ShouldCloseOrder()) {
+      MqlParam _args[] = {{TYPE_STRING, 0, 0, "Close condition"}};
+#ifdef __MQL__
+      _args[0].string_value += StringFormat(": %s", EnumToString(oparams.cond_close));
+#endif
+      _result &= Order::ExecuteAction(ORDER_ACTION_CLOSE, _args);
+    }
+    return _result;
+  }
 
   /**
    * Checks for order condition.
@@ -2367,7 +2206,7 @@ class Order : public SymbolInfo {
    * @return
    *   Returns true when the condition is met.
    */
-  bool Condition(ENUM_ORDER_CONDITION _cond, MqlParam &_args[]) {
+  bool CheckCondition(ENUM_ORDER_CONDITION _cond, MqlParam &_args[]) {
     switch (_cond) {
       case ORDER_COND_IN_LOSS:
         return GetProfit() < 0;
@@ -2380,7 +2219,6 @@ class Order : public SymbolInfo {
       case ORDER_COND_LIFETIME_GT_ARG:
       case ORDER_COND_LIFETIME_LT_ARG:
         if (ArraySize(_args) > 0) {
-          Update(ORDER_TIME_SETUP);
           long _arg_value = Convert::MqlParamToInteger(_args[0]);
           switch (_cond) {
             case ORDER_COND_LIFETIME_GT_ARG:
@@ -2441,9 +2279,9 @@ class Order : public SymbolInfo {
     SetUserError(ERR_INVALID_PARAMETER);
     return false;
   }
-  bool Condition(ENUM_ORDER_CONDITION _cond) {
+  bool CheckCondition(ENUM_ORDER_CONDITION _cond) {
     MqlParam _args[] = {};
-    return Order::Condition(_cond, _args);
+    return Order::CheckCondition(_cond, _args);
   }
 
   /**
@@ -2480,16 +2318,6 @@ class Order : public SymbolInfo {
   bool ExecuteAction(ENUM_ORDER_ACTION _action) {
     MqlParam _args[] = {};
     return Order::ExecuteAction(_action, _args);
-  }
-
-  /**
-   * Checks for the order closing condition.
-   *
-   * @return
-   *   Returns true when order should be closed, otherwise false.
-   */
-  bool CheckCloseCondition() {
-    return oparams.HasCloseCondition() && Order::Condition(oparams.cond_close, oparams.cond_args);
   }
 
   /* Printer methods */
@@ -2554,6 +2382,7 @@ class Order : public SymbolInfo {
 };
 
 #ifdef __MQL5__
+// Assigns values to static variables.
 ENUM_ORDER_SELECT_TYPE Order::selected_ticket_type = ORDER_SELECT_TYPE_NONE;
 unsigned long Order::selected_ticket_id = 0;
 #endif

@@ -31,9 +31,97 @@ class Chart;
 #include "Array.mqh"
 #include "BufferStruct.mqh"
 #include "Chart.mqh"
+#include "Condition.enum.h"
 #include "DateTime.mqh"
 #include "DrawIndicator.mqh"
-#include "Math.mqh"
+#include "Indicator.enum.h"
+#include "Indicator.struct.h"
+#include "Math.h"
+#include "Object.mqh"
+#include "Refs.mqh"
+
+/**
+ * Holds buffers used to cache values calculated via OnCalculate methods.
+ */
+class IndicatorCalculateCache : public Object {
+ public:
+  // Total number of calculated values.
+  int prev_calculated;
+
+  // Number of buffers used.
+  int num_buffers;
+
+  // Whether input price array was passed as series.
+  bool price_was_as_series;
+
+  // Buffers used for OnCalculate calculations.
+  double buffer1[];
+  double buffer2[];
+  double buffer3[];
+  double buffer4[];
+  double buffer5[];
+
+  /**
+   * Constructor.
+   */
+  IndicatorCalculateCache(int _num_buffers = 0, int _buffers_size = 0) {
+    prev_calculated = 0;
+    num_buffers = _num_buffers;
+
+    Resize(_buffers_size);
+  }
+
+  /**
+   * Resizes all buffers.
+   */
+  void Resize(int _buffers_size) {
+    static int increase = 65536;
+    switch (num_buffers) {
+      case 5:
+        ArrayResize(buffer5, _buffers_size, (_buffers_size - _buffers_size % increase) + increase);
+      case 4:
+        ArrayResize(buffer4, _buffers_size, (_buffers_size - _buffers_size % increase) + increase);
+      case 3:
+        ArrayResize(buffer3, _buffers_size, (_buffers_size - _buffers_size % increase) + increase);
+      case 2:
+        ArrayResize(buffer2, _buffers_size, (_buffers_size - _buffers_size % increase) + increase);
+      case 1:
+        ArrayResize(buffer1, _buffers_size, (_buffers_size - _buffers_size % increase) + increase);
+    }
+  }
+
+  /**
+   * Retrieves cached value from the given buffer (buffer is indexed from 1 to 5).
+   */
+  double GetValue(int _buffer_index, int _shift) {
+    switch (_buffer_index) {
+      case 1:
+        return buffer1[ArraySize(buffer1) - 1 - _shift];
+      case 2:
+        return buffer2[ArraySize(buffer2) - 1 - _shift];
+      case 3:
+        return buffer3[ArraySize(buffer3) - 1 - _shift];
+      case 4:
+        return buffer4[ArraySize(buffer4) - 1 - _shift];
+      case 5:
+        return buffer5[ArraySize(buffer5) - 1 - _shift];
+    }
+    return DBL_MIN;
+  }
+
+  /**
+   * Updates prev_calculated value used by indicator's OnCalculate method.
+   */
+  void SetPrevCalculated(double& price[], int _prev_calculated) {
+    prev_calculated = _prev_calculated;
+    ArraySetAsSeries(price, price_was_as_series);
+  }
+
+  /**
+   * Returns prev_calculated value used by indicator's OnCalculate method.
+   */
+  int GetPrevCalculated(int _prev_calculated) { return prev_calculated; }
+};
 
 // Defines macros.
 #define COMMA ,
@@ -78,95 +166,6 @@ int IndicatorCounted(int _value = 0) {
 }
 #endif
 
-// Globals enums.
-// Defines indicator conditions.
-enum ENUM_INDICATOR_CONDITION {
-  INDI_COND_ENTRY_IS_MAX = 1,  // Indicator entry value is maximum.
-  INDI_COND_ENTRY_IS_MIN = 2,  // Indicator entry value is minimum.
-  INDI_COND_ENTRY_GT_AVG = 3,  // Indicator entry value is greater than average.
-  INDI_COND_ENTRY_GT_MED = 4,  // Indicator entry value is greater than median.
-  INDI_COND_ENTRY_LT_AVG = 5,  // Indicator entry value is lesser than average.
-  INDI_COND_ENTRY_LT_MED = 6,  // Indicator entry value is lesser than median.
-  FINAL_INDICATOR_CONDITION_ENTRY = 7
-};
-
-// Define type of indicators.
-enum ENUM_INDICATOR_TYPE {
-  INDI_NONE = 0,             // (None)
-  INDI_AC,                   // Accelerator Oscillator
-  INDI_AD,                   // Accumulation/Distribution
-  INDI_ADX,                  // Average Directional Index
-  INDI_ADXW,                 // ADX by Welles Wilder
-  INDI_ALLIGATOR,            // Alligator
-  INDI_AMA,                  // Adaptive Moving Average
-  INDI_AO,                   // Awesome Oscillator
-  INDI_ATR,                  // Average True Range
-  INDI_BANDS,                // Bollinger Bands
-  INDI_BANDS_ON_PRICE,       // Bollinger Bands (on Price)
-  INDI_BEARS,                // Bears Power
-  INDI_BULLS,                // Bulls Power
-  INDI_BWMFI,                // Market Facilitation Index
-  INDI_CCI,                  // Commodity Channel Index
-  INDI_CCI_ON_PRICE,         // Commodity Channel Index (CCI) (on Price)
-  INDI_CHAIKIN,              // Chaikin Oscillator
-  INDI_CUSTOM,               // Custom indicator
-  INDI_DEMA,                 // Double Exponential Moving Average
-  INDI_DEMARKER,             // DeMarker
-  INDI_DEMO,                 // Demo/Dummy Indicator
-  INDI_ENVELOPES,            // Envelopes
-  INDI_ENVELOPES_ON_PRICE,   // Evelopes (on Price)
-  INDI_FORCE,                // Force Index
-  INDI_FRACTALS,             // Fractals
-  INDI_FRAMA,                // Fractal Adaptive Moving Average
-  INDI_GATOR,                // Gator Oscillator
-  INDI_HEIKENASHI,           // Heiken Ashi
-  INDI_ICHIMOKU,             // Ichimoku Kinko Hyo
-  INDI_MA,                   // Moving Average
-  INDI_MACD,                 // MACD
-  INDI_MA_ON_PRICE,          // Moving Average (on Price).
-  INDI_MFI,                  // Money Flow Index
-  INDI_MOMENTUM,             // Momentum
-  INDI_MOMENTUM_ON_PRICE,    // Momentum (on Price)
-  INDI_OBV,                  // On Balance Volume
-  INDI_OSMA,                 // OsMA
-  INDI_PRICE,                // Price Indicator
-  INDI_PRICE_FEEDER,         // Indicator which returns prices from custom array
-  INDI_RSI,                  // Relative Strength Index
-  INDI_RSI_ON_PRICE,         // Relative Strength Index (RSI) (on Price)
-  INDI_RVI,                  // Relative Vigor Index
-  INDI_SAR,                  // Parabolic SAR
-  INDI_STDDEV,               // Standard Deviation
-  INDI_STDDEV_ON_MA_SMA,     // Standard Deviation on Moving Average in SMA mode
-  INDI_STDDEV_ON_PRICE,      // Standard Deviation (on Price)
-  INDI_STDDEV_SMA_ON_PRICE,  // Standard Deviation in SMA mode (on Price)
-  INDI_STOCHASTIC,           // Stochastic Oscillator
-  INDI_TEMA,                 // Triple Exponential Moving Average
-  INDI_TRIX,                 // Triple Exponential Moving Averages Oscillator
-  INDI_VIDYA,                // Variable Index Dynamic Average
-  INDI_VOLUMES,              // Volumes
-  INDI_WPR,                  // Williams' Percent Range
-  INDI_ZIGZAG,               // ZigZag
-  FINAL_INDICATOR_TYPE_ENTRY
-};
-
-// Defines type of source data for indicator.
-enum ENUM_IDATA_SOURCE_TYPE {
-  IDATA_BUILTIN,   // Use builtin function.
-  IDATA_ICUSTOM,   // Use custom indicator file (iCustom).
-  IDATA_INDICATOR  // Use indicator class as source of data with custom calculation.
-};
-
-// Defines type of value for indicator storage.
-enum ENUM_IDATA_VALUE_TYPE { TNONE, TDBL1, TDBL2, TDBL3, TDBL4, TDBL5, TINT1, TINT2, TINT3, TINT4, TINT5 };
-
-// Define indicator index.
-enum ENUM_INDICATOR_INDEX {
-  CURR = 0,
-  PREV = 1,
-  PPREV = 2,
-  FINAL_ENUM_INDICATOR_INDEX = 3  // Should be the last one. Used to calculate the number of enum items.
-};
-
 /* Common indicator line identifiers */
 
 // @see: https://docs.mql4.com/constants/indicatorconstants/lines
@@ -192,48 +191,6 @@ enum ENUM_INDICATOR_INDEX {
 #define LOWER_LINE 1  // Bottom line.
 #endif
 
-// Indicator line identifiers used in Envelopes and Fractals indicators.
-enum ENUM_LO_UP_LINE {
-#ifdef __MQL4__
-  LINE_UPPER = MODE_UPPER,  // Upper line.
-  LINE_LOWER = MODE_LOWER,  // Bottom line.
-#else
-  LINE_UPPER = UPPER_LINE,  // Upper line.
-  LINE_LOWER = LOWER_LINE,  // Bottom line.
-#endif
-  FINAL_LO_UP_LINE_ENTRY,
-};
-
-// Indicator line identifiers used in MACD, RVI and Stochastic indicators.
-enum ENUM_SIGNAL_LINE {
-#ifdef __MQL4__
-  // @see: https://docs.mql4.com/constants/indicatorconstants/lines
-  LINE_MAIN = MODE_MAIN,      // Main line.
-  LINE_SIGNAL = MODE_SIGNAL,  // Signal line.
-#else
-  // @see: https://www.mql5.com/en/docs/constants/indicatorconstants/lines
-  LINE_MAIN = MAIN_LINE,      // Main line.
-  LINE_SIGNAL = SIGNAL_LINE,  // Signal line.
-#endif
-  FINAL_SIGNAL_LINE_ENTRY,
-};
-
-#ifdef __MQL4__
-// The volume type is used in calculations.
-// For MT4, we define it for backward compatibility.
-// @docs: https://www.mql5.com/en/docs/constants/indicatorconstants/prices#enum_applied_price_enum
-enum ENUM_APPLIED_VOLUME { VOLUME_TICK = 0, VOLUME_REAL = 1 };
-#endif
-
-// Indicator entry flags.
-enum INDICATOR_ENTRY_FLAGS {
-  INDI_ENTRY_FLAG_NONE = 0,
-  INDI_ENTRY_FLAG_IS_VALID = 1,
-  INDI_ENTRY_FLAG_RESERVED1 = 2,
-  INDI_ENTRY_FLAG_RESERVED2 = 4,
-  INDI_ENTRY_FLAG_RESERVED3 = 8
-};
-
 // Defines.
 #define ArrayResizeLeft(_arr, _new_size, _reserve_size)  \
   ArraySetAsSeries(_arr, true);                          \
@@ -244,458 +201,8 @@ enum INDICATOR_ENTRY_FLAGS {
 
 // Forward declarations.
 class DrawIndicator;
-class Indicator;
-
-// Structs.
-struct IndicatorDataEntry {
-  unsigned char flags;  // Indicator entry flags.
-  long timestamp;       // Timestamp of the entry's bar.
-  union IndicatorDataEntryValue {
-    double tdbl, tdbl2[2], tdbl3[3], tdbl4[4], tdbl5[5];
-    int tint, tint2[2], tint3[3], tint4[4], tint5[5];
-    // Operator overloading methods.
-    double operator[](int _index) { return tdbl5[_index]; }
-    // Other methods.
-    double GetMinDbl(ENUM_IDATA_VALUE_TYPE _idvtype) {
-      switch (_idvtype) {
-        case TDBL1:
-          return tdbl;
-        case TDBL2:
-          return fmin(tdbl2[0], tdbl2[1]);
-        case TDBL3:
-          return fmin(fmin(tdbl3[0], tdbl3[1]), tdbl3[2]);
-        case TDBL4:
-          return fmin(fmin(fmin(tdbl4[0], tdbl4[1]), tdbl4[2]), tdbl4[3]);
-        case TDBL5:
-          return fmin(fmin(fmin(fmin(tdbl5[0], tdbl5[1]), tdbl5[2]), tdbl5[3]), tdbl5[4]);
-        case TINT1:
-          return (double)tint;
-        case TINT2:
-          return (double)fmin(tint2[0], tint2[1]);
-        case TINT3:
-          return (double)fmin(fmin(tint3[0], tint3[1]), tint3[2]);
-        case TINT4:
-          return (double)fmin(fmin(fmin(tint4[0], tint4[1]), tint4[2]), tint4[3]);
-        case TINT5:
-          return (double)fmin(fmin(fmin(fmin(tint5[0], tint5[1]), tint5[2]), tint5[3]), tint5[4]);
-      }
-      return DBL_MIN;
-    }
-    int GetMinInt(ENUM_IDATA_VALUE_TYPE _idvtype) {
-      switch (_idvtype) {
-        case TDBL1:
-          return (int)tdbl;
-        case TDBL2:
-          return (int)fmin(tdbl2[0], tdbl2[1]);
-        case TDBL3:
-          return (int)fmin(fmin(tdbl3[0], tdbl3[1]), tdbl3[2]);
-        case TDBL4:
-          return (int)fmin(fmin(fmin(tdbl4[0], tdbl4[1]), tdbl4[2]), tdbl4[3]);
-        case TDBL5:
-          return (int)fmin(fmin(fmin(fmin(tdbl4[0], tdbl4[1]), tdbl4[2]), tdbl4[3]), tdbl4[4]);
-        case TINT1:
-          return tint;
-        case TINT2:
-          return fmin(tint2[0], tint2[1]);
-        case TINT3:
-          return fmin(fmin(tint3[0], tint3[1]), tint3[2]);
-        case TINT4:
-          return fmin(fmin(fmin(tint4[0], tint4[1]), tint4[2]), tint4[3]);
-        case TINT5:
-          return fmin(fmin(fmin(fmin(tint4[0], tint4[1]), tint4[2]), tint4[3]), tint4[4]);
-      }
-      return INT_MIN;
-    }
-    double GetMaxDbl(ENUM_IDATA_VALUE_TYPE _idvtype) {
-      switch (_idvtype) {
-        case TDBL1:
-          return tdbl;
-        case TDBL2:
-          return fmax(tdbl2[0], tdbl2[1]);
-        case TDBL3:
-          return fmax(fmax(tdbl3[0], tdbl3[1]), tdbl3[2]);
-        case TDBL4:
-          return fmax(fmax(fmax(tdbl4[0], tdbl4[1]), tdbl4[2]), tdbl4[3]);
-        case TDBL5:
-          return fmax(fmax(fmax(fmax(tdbl5[0], tdbl5[1]), tdbl5[2]), tdbl5[3]), tdbl5[4]);
-        case TINT1:
-          return (double)tint;
-        case TINT2:
-          return (double)fmax(tint2[0], tint2[1]);
-        case TINT3:
-          return (double)fmax(fmax(tint3[0], tint3[1]), tint3[2]);
-        case TINT4:
-          return (double)fmax(fmax(fmax(tint4[0], tint4[1]), tint4[2]), tint4[3]);
-        case TINT5:
-          return (double)fmax(fmax(fmax(fmax(tint5[0], tint5[1]), tint5[2]), tint5[3]), tint5[4]);
-      }
-      return DBL_MIN;
-    }
-    int GetMaxInt(ENUM_IDATA_VALUE_TYPE _idvtype) {
-      switch (_idvtype) {
-        case TDBL1:
-          return (int)tdbl;
-        case TDBL2:
-          return (int)fmax(tdbl2[0], tdbl2[1]);
-        case TDBL3:
-          return (int)fmax(fmax(tdbl3[0], tdbl3[1]), tdbl3[2]);
-        case TDBL4:
-          return (int)fmax(fmax(fmax(tdbl4[0], tdbl4[1]), tdbl4[2]), tdbl4[3]);
-        case TDBL5:
-          return (int)fmax(fmax(fmax(fmax(tdbl5[0], tdbl5[1]), tdbl5[2]), tdbl5[3]), tdbl5[4]);
-        case TINT1:
-          return tint;
-        case TINT2:
-          return fmax(tint2[0], tint2[1]);
-        case TINT3:
-          return fmax(fmax(tint3[0], tint3[1]), tint3[2]);
-        case TINT4:
-          return fmax(fmax(fmax(tint4[0], tint4[1]), tint4[2]), tint4[3]);
-        case TINT5:
-          return fmax(fmax(fmax(fmax(tint5[0], tint5[1]), tint5[2]), tint5[3]), tint5[4]);
-      }
-      return INT_MIN;
-    }
-    double GetValueDbl(ENUM_IDATA_VALUE_TYPE _idvtype, int _index = 0) {
-      switch (_idvtype) {
-        case TDBL1:
-          return tdbl;
-        case TDBL2:
-          return tdbl2[_index];
-        case TDBL3:
-          return tdbl3[_index];
-        case TDBL4:
-          return tdbl4[_index];
-        case TDBL5:
-          return tdbl5[_index];
-        case TINT1:
-          return (double)tint;
-        case TINT2:
-          return (double)tint2[_index];
-        case TINT3:
-          return (double)tint3[_index];
-        case TINT4:
-          return (double)tint4[_index];
-        case TINT5:
-          return (double)tint5[_index];
-      }
-      return WRONG_VALUE;
-    }
-    int GetValueInt(ENUM_IDATA_VALUE_TYPE _idvtype, int _index = 0) {
-      switch (_idvtype) {
-        case TDBL1:
-          return (int)tdbl;
-        case TDBL2:
-          return (int)tdbl2[_index];
-        case TDBL3:
-          return (int)tdbl3[_index];
-        case TDBL4:
-          return (int)tdbl4[_index];
-        case TDBL5:
-          return (int)tdbl5[_index];
-        case TINT1:
-          return tint;
-        case TINT2:
-          return tint2[_index];
-        case TINT3:
-          return tint3[_index];
-        case TINT4:
-          return tint4[_index];
-        case TINT5:
-          return tint5[_index];
-      }
-      return WRONG_VALUE;
-    }
-    template <typename VType>
-    bool HasValue(ENUM_IDATA_VALUE_TYPE _idvtype, VType _value) {
-      switch (_idvtype) {
-        case TDBL1:
-          return tdbl == _value;
-        case TDBL2:
-          return tdbl2[0] == _value || tdbl2[1] == _value;
-        case TDBL3:
-          return tdbl3[0] == _value || tdbl3[1] == _value || tdbl3[2] == _value;
-        case TDBL4:
-          return tdbl4[0] == _value || tdbl4[1] == _value || tdbl4[2] == _value || tdbl4[3] == _value;
-        case TDBL5:
-          return tdbl5[0] == _value || tdbl5[1] == _value || tdbl5[2] == _value || tdbl5[3] == _value ||
-                 tdbl5[4] == _value;
-        case TINT1:
-          return tint == _value;
-        case TINT2:
-          return tint2[0] == _value || tint2[1] == _value;
-        case TINT3:
-          return tint3[0] == _value || tint3[1] == _value || tint3[2] == _value;
-        case TINT4:
-          return tint4[0] == _value || tint4[1] == _value || tint4[2] == _value || tint4[3] == _value;
-        case TINT5:
-          return tint5[0] == _value || tint5[1] == _value || tint5[2] == _value || tint5[3] == _value ||
-                 tint5[4] == _value;
-      }
-      return false;
-    }
-    void SetValue(ENUM_IDATA_VALUE_TYPE _idvtype, double _value, int _index = 0) {
-      switch (_idvtype) {
-        case TDBL1:
-          tdbl = _value;
-          break;
-        case TDBL2:
-          tdbl2[_index] = _value;
-          break;
-        case TDBL3:
-          tdbl3[_index] = _value;
-          break;
-        case TDBL4:
-          tdbl4[_index] = _value;
-          break;
-        case TDBL5:
-          tdbl5[_index] = _value;
-          break;
-        case TINT1:
-          tint = (int)_value;
-          break;
-        case TINT2:
-          tint2[_index] = (int)_value;
-          break;
-        case TINT3:
-          tint3[_index] = (int)_value;
-          break;
-        case TINT4:
-          tint4[_index] = (int)_value;
-          break;
-        case TINT5:
-          tint5[_index] = (int)_value;
-          break;
-      }
-    }
-    void SetValue(ENUM_IDATA_VALUE_TYPE _idvtype, int _value, int _index = 0) {
-      switch (_idvtype) {
-        case TDBL1:
-          tdbl = (double)_value;
-          break;
-        case TDBL2:
-          tdbl2[_index] = (double)_value;
-          break;
-        case TDBL3:
-          tdbl3[_index] = (double)_value;
-          break;
-        case TDBL4:
-          tdbl4[_index] = (double)_value;
-          break;
-        case TDBL5:
-          tdbl5[_index] = (double)_value;
-          break;
-        case TINT1:
-          tint = _value;
-          break;
-        case TINT2:
-          tint2[_index] = _value;
-          break;
-        case TINT3:
-          tint3[_index] = _value;
-          break;
-        case TINT4:
-          tint4[_index] = _value;
-          break;
-        case TINT5:
-          tint5[_index] = _value;
-          break;
-      }
-    }
-    string ToString(ENUM_IDATA_VALUE_TYPE _idvtype) {
-      switch (_idvtype) {
-        case TDBL1:
-          return StringFormat("%g", tdbl);
-        case TDBL2:
-          return StringFormat("%g,%g", tdbl2[0], tdbl2[1]);
-        case TDBL3:
-          return StringFormat("%g,%g,%g", tdbl3[0], tdbl3[1], tdbl3[2]);
-        case TDBL4:
-          return StringFormat("%g,%g,%g,%g", tdbl4[0], tdbl4[1], tdbl4[2], tdbl4[3]);
-        case TDBL5:
-          return StringFormat("%g,%g,%g,%g,%g", tdbl5[0], tdbl5[1], tdbl5[2], tdbl5[3], tdbl5[4]);
-        case TINT1:
-          return StringFormat("%d", tint);
-        case TINT2:
-          return StringFormat("%d,%d", tint2[0], tint2[1]);
-        case TINT3:
-          return StringFormat("%d,%d,%g", tint3[0], tint3[1], tint3[2]);
-        case TINT4:
-          return StringFormat("%d,%d,%d,%d", tint4[0], tint4[1], tint4[2], tint4[3]);
-        case TINT5:
-          return StringFormat("%d,%d,%d,%d,%g", tint5[0], tint5[1], tint5[2], tint5[3], tint5[4]);
-      }
-      return "n/a";
-    }
-  } value;
-  // Special methods.
-  void IndicatorDataEntry() : flags(INDI_ENTRY_FLAG_NONE), timestamp(0) {}
-  // Operator overloading methods.
-  double operator[](int _index) { return value[_index]; }
-  // Other methods.
-  bool IsValid() { return bool(flags & INDI_ENTRY_FLAG_IS_VALID); }
-  int GetDayOfYear() { return DateTime::TimeDayOfYear(timestamp); }
-  int GetMonth() { return DateTime::TimeMonth(timestamp); }
-  int GetYear() { return DateTime::TimeYear(timestamp); }
-  void AddFlags(unsigned char _flags) { flags |= _flags; }
-  void RemoveFlags(unsigned char _flags) { flags &= ~_flags; }
-  void SetFlag(INDICATOR_ENTRY_FLAGS _flag, bool _value) {
-    if (_value)
-      AddFlags(_flag);
-    else
-      RemoveFlags(_flag);
-  }
-  void SetFlags(unsigned char _flags) { flags = _flags; }
-};
-struct IndicatorParams : ChartParams {
-  string name;                     // Name of the indicator.
-  int shift;                       // Shift (relative to the current bar, 0 - default).
-  unsigned int max_modes;          // Max supported indicator modes (values per entry).
-  unsigned int max_buffers;        // Max buffers to store.
-  ENUM_INDICATOR_TYPE itype;       // Type of indicator.
-  ENUM_IDATA_SOURCE_TYPE idstype;  // Indicator data source type.
-  ENUM_IDATA_VALUE_TYPE idvtype;   // Indicator data value type.
-  ENUM_DATATYPE dtype;             // General type of stored values (DTYPE_DOUBLE, DTYPE_INT).
-  Indicator* indi_data;            // Indicator to be used as data source.
-  bool indi_data_ownership;        // Whether this indicator should delete given indicator at the end.
-  color indi_color;                // Indicator color.
-  int indi_mode;                   // Index of indicator data to be used as data source.
-  bool is_draw;                    // Draw active.
-  int draw_window;                 // Drawing window.
-  string custom_indi_name;         // Name of the indicator passed to iCustom() method.
-  /* Special methods */
-  // Constructor.
-  IndicatorParams(ENUM_INDICATOR_TYPE _itype = INDI_NONE, ENUM_IDATA_VALUE_TYPE _idvtype = TDBL1,
-                  ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, string _name = "")
-      : name(_name),
-        shift(0),
-        max_modes(1),
-        max_buffers(10),
-        idstype(_idstype),
-        itype(_itype),
-        is_draw(false),
-        indi_color(clrNONE),
-        indi_mode(0),
-        indi_data_ownership(true),
-        draw_window(0) {
-    SetDataValueType(_idvtype);
-    SetDataSourceType(_idstype);
-  };
-  IndicatorParams(string _name, ENUM_IDATA_VALUE_TYPE _idvtype = TDBL1, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN)
-      : name(_name),
-        shift(0),
-        max_modes(1),
-        max_buffers(10),
-        idstype(_idstype),
-        is_draw(false),
-        indi_color(clrNONE),
-        indi_mode(0),
-        indi_data_ownership(true),
-        draw_window(0) {
-    SetDataValueType(_idvtype);
-    SetDataSourceType(_idstype);
-  };
-  /* Getters */
-  string GetCustomIndicatorName() { return custom_indi_name; }
-  color GetIndicatorColor() { return indi_color; }
-  int GetIndicatorMode() { return indi_mode; }
-  int GetMaxModes() { return (int)max_modes; }
-  int GetShift() { return shift; }
-  ENUM_IDATA_SOURCE_TYPE GetIDataSourceType() { return idstype; }
-  ENUM_IDATA_VALUE_TYPE GetIDataValueType() { return idvtype; }
-  /* Setters */
-  void SetCustomIndicatorName(string _name) { custom_indi_name = _name; }
-  void SetDataSourceType(ENUM_IDATA_SOURCE_TYPE _idstype) { idstype = _idstype; }
-  void SetDataValueType(ENUM_IDATA_VALUE_TYPE _idata_type) {
-    idvtype = _idata_type;
-    dtype = idvtype >= TINT1 && idvtype <= TINT5 ? TYPE_INT : TYPE_DOUBLE;
-  }
-  void SetDataValueType(ENUM_DATATYPE _datatype) {
-    dtype = _datatype;
-    switch (max_modes) {
-      case 1:
-        idvtype = _datatype == TYPE_DOUBLE ? TDBL1 : TINT1;
-        break;
-      case 2:
-        idvtype = _datatype == TYPE_DOUBLE ? TDBL2 : TINT2;
-        break;
-      case 3:
-        idvtype = _datatype == TYPE_DOUBLE ? TDBL3 : TINT3;
-        break;
-      case 4:
-        idvtype = _datatype == TYPE_DOUBLE ? TDBL4 : TINT4;
-        break;
-      case 5:
-        idvtype = _datatype == TYPE_DOUBLE ? TDBL5 : TINT5;
-        break;
-    }
-  }
-  void SetDraw(bool _draw = true, int _window = 0) {
-    is_draw = _draw;
-    draw_window = _window;
-  }
-  void SetDraw(color _clr, int _window = 0) {
-    is_draw = true;
-    indi_color = _clr;
-    draw_window = _window;
-  }
-  void SetIndicatorColor(color _clr) { indi_color = _clr; }
-  void SetIndicatorData(Indicator* _indi, bool take_ownership = true) {
-    if (indi_data != NULL && indi_data_ownership) {
-      delete indi_data;
-    };
-    indi_data = _indi;
-    idstype = IDATA_INDICATOR;
-    indi_data_ownership = take_ownership;
-  }
-  void SetIndicatorMode(int mode) { indi_mode = mode; }
-  void SetIndicatorType(ENUM_INDICATOR_TYPE _itype) { itype = _itype; }
-  void SetMaxModes(int _max_modes) { max_modes = _max_modes; }
-  void SetName(string _name) { name = _name; };
-  void SetShift(int _shift) { shift = _shift; }
-  void SetSize(int _size) { max_buffers = _size; };
-};
-struct IndicatorState {
-  int handle;       // Indicator handle (MQL5 only).
-  bool is_changed;  // Set when params has been recently changed.
-  bool is_ready;    // Set when indicator is ready (has valid values).
-  void IndicatorState() : handle(INVALID_HANDLE), is_changed(true), is_ready(false) {}
-  int GetHandle() { return handle; }
-  bool IsChanged() { return is_changed; }
-  bool IsReady() { return is_ready; }
-};
 
 #ifndef __MQLBUILD__
-//
-// Data type identifiers.
-// @docs
-// - https://www.mql5.com/en/docs/constants/indicatorconstants/enum_datatype
-enum ENUM_DATATYPE {
-  TYPE_BOOL,
-  TYPE_CHAR,
-  TYPE_UCHAR,
-  TYPE_SHORT,
-  TYPE_USHORT,
-  TYPE_COLOR,
-  TYPE_INT,
-  TYPE_UINT,
-  TYPE_DATETIME,
-  TYPE_LONG,
-  TYPE_ULONG,
-  TYPE_FLOAT,
-  TYPE_DOUBLE,
-  TYPE_STRING
-}
-//
-// The structure of input parameters of indicators.
-// @docs
-// - https://www.mql5.com/en/docs/constants/structures/mqlparam
-struct MqlParam {
-  ENUM_DATATYPE type;   // Type of the input parameter, value of ENUM_DATATYPE.
-  long integer_value;   // Field to store an integer type.
-  double double_value;  // Field to store a double type.
-  string string_value;  // Field to store a string type.
-};
 //
 // Empty value in an indicator buffer.
 // @docs
@@ -858,6 +365,74 @@ class Indicator : public Chart {
   }
 
   /**
+   * Initializes a cached proxy between i*OnArray() methods and OnCalculate()
+   * used by custom indicators.
+   *
+   * Note that OnCalculateProxy() method sets incoming price array as not
+   * series. It will be reverted back by SetPrevCalculated(). It is because
+   * OnCalculate() methods assumes that prices are set as not series.
+   *
+   * For real example how you can use this method, look at
+   * Indi_MA::iMAOnArray() method.
+   *
+   * Usage:
+   *
+   * static double iFooOnArray(double &price[], int total, int period,
+   *   int foo_shift, int foo_method, int shift, string cache_name = "")
+   * {
+   *  if (cache_name != "") {
+   *   String cache_key;
+   *   cache_key.Add(cache_name);
+   *   cache_key.Add(period);
+   *   cache_key.Add(foo_method);
+   *
+   *   Ref<IndicatorCalculateCache> cache = Indicator::OnCalculateProxy(cache_key.ToString(), price, total);
+   *
+   *   int prev_calculated =
+   *     Indi_Foo::Calculate(total, cache.Ptr().prev_calculated, 0, price, cache.Ptr().buffer1, ma_method, period);
+   *
+   *   cache.Ptr().SetPrevCalculated(price, prev_calculated);
+   *
+   *   return cache.Ptr().GetValue(1, shift + ma_shift);
+   *  }
+   *  else {
+   *    // Default iFooOnArray.
+   *  }
+   *
+   *  WARNING: Do not use shifts when creating cache_key, as this will create many invalid buffers.
+   */
+  static Ref<IndicatorCalculateCache> OnCalculateProxy(string key, double& price[], int& total) {
+    if (total == 0) {
+      total = ArraySize(price);
+    }
+
+    // Stores previously calculated value.
+    static DictStruct<string, Ref<IndicatorCalculateCache>> cache;
+
+    unsigned int position;
+    Ref<IndicatorCalculateCache> cache_item;
+
+    if (cache.KeyExists(key, position)) {
+      cache_item = cache.GetByKey(key);
+    } else {
+      cache_item = new IndicatorCalculateCache(1, ArraySize(price));
+      cache.Set(key, cache_item);
+    }
+
+    // Number of bars available in the chart. Same as length of the input `array`.
+    int rates_total = ArraySize(price);
+
+    int begin = 0;
+
+    cache_item.Ptr().Resize(rates_total);
+
+    cache_item.Ptr().price_was_as_series = ArrayGetAsSeries(price);
+    ArraySetAsSeries(price, false);
+
+    return cache_item;
+  }
+
+  /**
    * Allocates memory for buffers used for custom indicator calculations.
    */
   static int IndicatorBuffers(int _count = 0) {
@@ -865,9 +440,7 @@ class Indicator : public Chart {
     indi_buffers = _count > 0 ? _count : indi_buffers;
     return indi_buffers;
   }
-  static int GetIndicatorBuffers() {
-    return Indicator::IndicatorBuffers();
-  }
+  static int GetIndicatorBuffers() { return Indicator::IndicatorBuffers(); }
   static bool SetIndicatorBuffers(int _count) {
     Indicator::IndicatorBuffers(_count);
     return GetIndicatorBuffers() > 0 && GetIndicatorBuffers() <= 512;
@@ -1169,6 +742,11 @@ class Indicator : public Chart {
     istate.is_changed = true;
   }
 
+  /**
+   * Sets indicator's params.
+   */
+  void SetParams(IndicatorParams &_iparams) { iparams = _iparams; }
+
   /* Conditions */
 
   /**
@@ -1181,7 +759,7 @@ class Indicator : public Chart {
    * @return
    *   Returns true when the condition is met.
    */
-  bool Condition(ENUM_INDICATOR_CONDITION _cond, MqlParam& _args[]) {
+  bool CheckCondition(ENUM_INDICATOR_CONDITION _cond, MqlParam& _args[]) {
     switch (_cond) {
       case INDI_COND_ENTRY_IS_MAX:
         // @todo: Add arguments, check if the entry value is max.
@@ -1210,9 +788,9 @@ class Indicator : public Chart {
         return false;
     }
   }
-  bool Condition(ENUM_INDICATOR_CONDITION _cond) {
+  bool CheckCondition(ENUM_INDICATOR_CONDITION _cond) {
     MqlParam _args[] = {};
-    return Indicator::Condition(_cond, _args);
+    return Indicator::CheckCondition(_cond, _args);
   }
 
   /* Other methods */
@@ -1437,9 +1015,6 @@ class Indicator : public Chart {
   /**
    * Returns the indicator's value in plain format.
    */
-  virtual string ToString(int _shift = 0) {
-    return GetEntry(_shift).value.ToString(iparams.idvtype);
-  }
-
+  virtual string ToString(int _shift = 0) { return GetEntry(_shift).value.ToCSV(iparams.idvtype); }
 };
 #endif

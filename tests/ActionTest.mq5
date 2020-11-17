@@ -24,8 +24,8 @@
  * Test functionality of Action class.
  */
 
-// Forward class declaration.
-class Condition;
+// Defines.
+#define ACTION_EA_ENABLED
 
 // Includes.
 #include "../Action.mqh"
@@ -49,10 +49,10 @@ class Stg1 : public Strategy {
     Strategy *_strat = new Stg1(stg_params, __FUNCTION__);
     return _strat;
   }
-  bool SignalOpen(ENUM_ORDER_TYPE _cmd, int _method, float _level) { return true; }
+  bool SignalOpen(ENUM_ORDER_TYPE _cmd, int _method, float _level, int _shift) { return true; }
   bool SignalOpenFilter(ENUM_ORDER_TYPE _cmd, int _method = 0) { return true; }
   float SignalOpenBoost(ENUM_ORDER_TYPE _cmd, int _method = 0) { return 1.0; }
-  bool SignalClose(ENUM_ORDER_TYPE _cmd, int _method, float _level) { return true; }
+  bool SignalClose(ENUM_ORDER_TYPE _cmd, int _method, float _level, int _shift) { return true; }
   float PriceLimit(ENUM_ORDER_TYPE _cmd, ENUM_ORDER_TYPE_VALUE _mode, int _method = 0, float _level = 0.0f) {
     return _level;
   }
@@ -71,19 +71,21 @@ int OnInit() {
   _result &= ea.StrategyAdd<Stg1>(127);
   // Check asserts.
   // Confirm EA is active.
-  assertTrueOrReturnFalse(ea.Condition(EA_COND_IS_ACTIVE), "Wrong condition: EA_COND_IS_ACTIVE!");
+  assertTrueOrReturnFalse(ea.CheckCondition(EA_COND_IS_ACTIVE), "Wrong condition: EA_COND_IS_ACTIVE!");
   // Confirm EA is enabled.
-  assertTrueOrReturnFalse(ea.Condition(EA_COND_IS_ENABLED), "Wrong condition: EA_COND_IS_ENABLED!");
+  assertTrueOrReturnFalse(ea.CheckCondition(EA_COND_IS_ENABLED), "Wrong condition: EA_COND_IS_ENABLED!");
+#ifdef ACTION_EA_ENABLED
   // Disables EA and confirm it's disabled.
   Action* action1 = new Action(EA_ACTION_DISABLE, ea);
   action1.Execute();
-  assertTrueOrReturnFalse(!ea.Condition(EA_COND_IS_ENABLED), "Wrong condition: EA_COND_IS_ENABLED!");
+  assertTrueOrReturnFalse(!ea.CheckCondition(EA_COND_IS_ENABLED), "Wrong condition: EA_COND_IS_ENABLED!");
   delete action1;
   // Re-enables EA and confirm it's enabled.
   Action* action2 = new Action(EA_ACTION_ENABLE, ea);
   action2.Execute();
-  assertTrueOrReturnFalse(ea.Condition(EA_COND_IS_ENABLED), "Wrong condition: EA_COND_IS_ENABLED!");
+  assertTrueOrReturnFalse(ea.CheckCondition(EA_COND_IS_ENABLED), "Wrong condition: EA_COND_IS_ENABLED!");
   delete action2;
+#endif
   _result &= GetLastError() == ERR_NO_ERROR;
 
   return (_result ? INIT_SUCCEEDED : INIT_FAILED);

@@ -1,22 +1,23 @@
 //+------------------------------------------------------------------+
-//|                 EA31337 - multi-strategy advanced trading robot. |
-//|                       Copyright 2016-2018, 31337 Investments Ltd |
+//|                                                EA31337 framework |
+//|                       Copyright 2016-2020, 31337 Investments Ltd |
 //|                                       https://github.com/EA31337 |
 //+------------------------------------------------------------------+
 
 /*
-   This file is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * This file is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 // Prevents processing this includes file for the second time.
@@ -60,6 +61,7 @@ const ENUM_SYMBOL_INFO_DOUBLE market_dcache[] = {SYMBOL_MARGIN_INITIAL, SYMBOL_M
 const ENUM_SYMBOL_INFO_INTEGER market_icache[] = {SYMBOL_DIGITS, SYMBOL_EXPIRATION_MODE, SYMBOL_FILLING_MODE, SYMBOL_ORDER_MODE, SYMBOL_SWAP_MODE, SYMBOL_SWAP_ROLLOVER3DAYS, SYMBOL_TRADE_CALC_MODE, SYMBOL_TRADE_EXEMODE, SYMBOL_TRADE_MODE };
 
 // Structs.
+// Defines struct to store symbol data.
 struct SymbolInfoEntry {
   double bid;      // Current Bid price.
   double ask;      // Current Ask price.
@@ -94,6 +96,7 @@ class SymbolInfo : public Terminal {
     string symbol;             // Current symbol pair.
     MqlTick last_tick;         // Stores the latest prices of the symbol.
     MqlTick tick_data[];       // Stores saved ticks.
+    SymbolInfoEntry s_entry;   // Symbol entry.
     double pip_size;           // Value of pip size.
     uint symbol_digits;        // Count of digits after decimal point in the symbol price.
     //uint pts_per_pip;          // Number of points per pip.
@@ -598,47 +601,70 @@ class SymbolInfo : public Terminal {
     }
 
     /**
-     * Initial margin (a security deposit) requirements for 1 lot.
-     *
-     * Initial margin means the amount in the margin currency required for opening a position with the volume of one lot.
-     * It is used for checking a client's assets when he or she enters the market.
+     * Returns initial margin (a security deposit) requirements for opening an order.
      *
      * @docs
      * - https://docs.mql4.com/constants/environment_state/marketinfoconstants
      * - https://www.mql5.com/en/docs/constants/environment_state/marketinfoconstants#enum_symbol_info_double
      */
-    static double GetMarginInit(string _symbol) {
-      return SymbolInfo::SymbolInfoDouble(_symbol, SYMBOL_MARGIN_INITIAL); // Same as: MarketInfo(symbol, MODE_MARGININIT);
+    static double GetMarginInit(string _symbol, ENUM_ORDER_TYPE _cmd = ORDER_TYPE_BUY) {
+#ifdef __MQL4__
+      // The amount in the margin currency required for opening an order with the volume of one lot.
+      // It is used for checking a client's assets when entering the market.
+      // Same as: MarketInfo(symbol, MODE_MARGININIT);
+      return SymbolInfo::SymbolInfoDouble(_symbol, SYMBOL_MARGIN_INITIAL);
+#else // __MQL5__
+      // In MQL5, SymbolInfoDouble() is used for stock markets, not Forex (https://www.mql5.com/en/forum/7418).
+      // So we've to use OrderCalcMargin() which calculates the margin required for the specified order type.
+      double _margin_init, _margin_main;
+      const bool _result = SymbolInfoMarginRate(_symbol, _cmd, _margin_init, _margin_main);
+      return _result ? _margin_init : 0;
+#endif
     }
-    double GetMarginInit() {
-      return GetMarginInit(symbol);
+    double GetMarginInit(ENUM_ORDER_TYPE _cmd = ORDER_TYPE_BUY) {
+      return GetMarginInit(symbol, _cmd);
     }
 
     /**
-     * Margin to maintain open orders calculated for 1 lot
-     *
-     * If it is set, it sets the margin amount in the margin currency of the symbol, charged from one lot.
-     * It is used for checking a client's assets when his/her account state changes.
-     * If the maintenance margin is equal to 0, the initial margin is used.
+     * Return the maintenance margin to maintain open orders.
      *
      * @docs
      * - https://docs.mql4.com/constants/environment_state/marketinfoconstants
      * - https://www.mql5.com/en/docs/constants/environment_state/marketinfoconstants#enum_symbol_info_double
      */
-    static double GetMarginMaintenance(string _symbol) {
-      return SymbolInfo::SymbolInfoDouble(_symbol, SYMBOL_MARGIN_MAINTENANCE); // Same as: MarketInfo(symbol, SYMBOL_MARGIN_MAINTENANCE);
+    static double GetMarginMaintenance(string _symbol, ENUM_ORDER_TYPE _cmd = ORDER_TYPE_BUY) {
+#ifdef __MQL4__
+      // The margin amount in the margin currency of the symbol, charged from one lot.
+      // It is used for checking a client's assets when his/her account state changes.
+      // If the maintenance margin is equal to 0, the initial margin should be used.
+      // Same as: MarketInfo(symbol, SYMBOL_MARGIN_MAINTENANCE);
+      return SymbolInfo::SymbolInfoDouble(_symbol, SYMBOL_MARGIN_MAINTENANCE);
+#else // __MQL5__
+      // In MQL5, SymbolInfoDouble() is used for stock markets, not Forex (https://www.mql5.com/en/forum/7418).
+      // So we've to use OrderCalcMargin() which calculates the margin required for the specified order type.
+      double _margin_init, _margin_main;
+      const bool _result = SymbolInfoMarginRate(_symbol, _cmd, _margin_init, _margin_main);
+      return _result ? _margin_main : 0;
+#endif
     }
-    double GetMarginMaintenance() {
-      return GetMarginMaintenance(symbol);
+    double GetMarginMaintenance(ENUM_ORDER_TYPE _cmd = ORDER_TYPE_BUY) {
+      return GetMarginMaintenance(symbol, _cmd);
     }
 
     /**
      * Gets symbol entry.
      */
-    SymbolInfoEntry GetEntry() {
-      MqlTick _tick = GetTick();
+    SymbolInfoEntry GetEntry(MqlTick &_tick) {
       SymbolInfoEntry _entry(_tick, symbol);
       return _entry;
+    }
+    SymbolInfoEntry GetEntry() {
+      MqlTick _tick = GetTick();
+      return GetEntry(_tick);
+    }
+    SymbolInfoEntry GetEntryLast() {
+      MqlTick _tick = GetLastTick();
+      return GetEntry(_tick);
     }
 
     /* Tick storage */

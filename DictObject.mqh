@@ -67,6 +67,7 @@ class DictObject : public DictBase<K, V> {
    * Copy constructor.
    */
   DictObject(const DictObject<K, V>& right) {
+    Clear();
     Resize(right.GetSlotCount());
     for (unsigned int i = 0; i < (unsigned int)ArraySize(right._DictSlots_ref.DictSlots); ++i) {
       _DictSlots_ref.DictSlots[i] = right._DictSlots_ref.DictSlots[i];
@@ -76,6 +77,7 @@ class DictObject : public DictBase<K, V> {
   }
 
   void operator=(const DictObject<K, V>& right) {
+    Clear();
     Resize(right.GetSlotCount());
     for (unsigned int i = 0; i < (unsigned int)ArraySize(right._DictSlots_ref.DictSlots); ++i) {
       _DictSlots_ref.DictSlots[i] = right._DictSlots_ref.DictSlots[i];
@@ -88,7 +90,8 @@ class DictObject : public DictBase<K, V> {
     for (unsigned int i = 0; i < (unsigned int)ArraySize(_DictSlots_ref.DictSlots); ++i) {
       if (_DictSlots_ref.DictSlots[i].IsValid() && _DictSlots_ref.DictSlots[i].IsUsed()) {
         _DictSlots_ref.DictSlots[i].RemoveFlags(DICT_SLOT_IS_USED);
-        _DictSlots_ref.DictSlots[i].value = V();
+        V empty();
+        _DictSlots_ref.DictSlots[i].value = empty;
         --_DictSlots_ref._num_used;
       }
     }
@@ -101,6 +104,11 @@ class DictObject : public DictBase<K, V> {
     if (!InsertInto(_DictSlots_ref, value)) return false;
     return true;
   }
+
+  /**
+   * Inserts value using hashless key.
+   */
+  bool operator+=(V& value) { return Push(value); }
 
   /**
    * Inserts or replaces value for a given key.
@@ -253,29 +261,58 @@ class DictObject : public DictBase<K, V> {
     return true;
   }
 
- public:
   template <>
-  JsonNodeType Serialize(JsonSerializer& s) {
+  SerializerNodeType Serialize(Serializer& s) {
     if (s.IsWriting()) {
-      for (DictIteratorBase<K, V> i = Begin(); i.IsValid(); ++i) s.PassStruct(this, i.KeyAsString(), i.Value());
+      for (DictIteratorBase<K, V> i = Begin(); i.IsValid(); ++i)
+        s.PassObject(this, GetMode() == DictModeDict ? i.KeyAsString() : "", i.Value());
 
-      return (GetMode() == DictModeDict) ? JsonNodeObject : JsonNodeArray;
+      return (GetMode() == DictModeDict) ? SerializerNodeObject : SerializerNodeArray;
     } else {
-      JsonIterator<V> i;
+      if (s.IsArray()) {
+        unsigned int num_items = s.NumArrayItems();
 
-      for (i = s.Begin<V>(); i.IsValid(); ++i)
-        if (i.HasKey()) {
-          // Converting key to a string.
-          K key;
-          Convert::StringToType(i.Key(), key);
+        while (num_items-- != 0) {
+          V child;
+          s.Enter();
+          child.Serialize(s);
+          Push(child);
+          s.Leave();
+        }
 
-          // Note that we're retrieving value by a key (as we are in an
-          // object!).
-          Set(key, i.Struct(i.Key()));
-        } else
-          Push(i.Struct());
+        return SerializerNodeArray;
+      } else {
+        SerializerIterator<V> i;
 
-      return i.ParentNodeType();
+        for (i = s.Begin<V>(); i.IsValid(); ++i) {
+          if (i.HasKey()) {
+            // Converting key to a string.
+            K key;
+            Convert::StringToType(i.Key(), key);
+
+            // Note that we're retrieving value by a key (as we are in an
+            // object!).
+            Set(key, i.Struct(i.Key()));
+          } else {
+            Push(i.Struct());
+          }
+        }
+        return i.ParentNodeType();
+      }
+    }
+  }
+
+  /**
+   * Initializes object with given number of elements. Could be skipped for non-containers.
+   */
+  template <>
+  void SerializeStub(int _n1 = 1, int _n2 = 1, int _n3 = 1, int _n4 = 1, int _n5 = 1) {
+    V _child;
+
+    _child.SerializeStub(_n2, _n3, _n4, _n5);
+
+    while (_n1-- > 0) {
+      Push(_child);
     }
   }
 };
