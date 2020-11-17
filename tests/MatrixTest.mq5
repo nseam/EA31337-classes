@@ -34,6 +34,7 @@
 int OnInit() {
   int a, b, c;
 
+
   Matrix<double> matrix(2, 3, 20);
 
   assertTrueOrFail(matrix.GetRange(0) == 2, "1st dimension's length is not valid!");
@@ -577,6 +578,51 @@ int OnInit() {
   delete ptr_matrix_23_cos_sim_result_0;
   delete ptr_matrix_23_cos_sim_a;
   delete ptr_matrix_23_cos_sim_b;
+
+  Matrix<double>* ptr_matrix_24_conv_1 = Matrix<double>::CreateFromString(
+    "["
+      "["
+        "["
+          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
+          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
+          "[-0.6827,  1.6293,  0.0355,  0.8605],"
+          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
+        "]"
+        "["
+          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
+          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
+          "[-0.6827,  1.6293,  0.0355,  0.8605],"
+          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
+        "]"
+      "]"
+      "["
+        "["
+          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
+          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
+          "[-0.6827,  1.6293,  0.0355,  0.8605],"
+          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
+        "]"
+        "["
+          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
+          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
+          "[-0.6827,  1.6293,  0.0355,  0.8605],"
+          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
+        "]"
+      "]"
+    "]");
+
+  Matrix<double>* ptr_matrix_24_conv_1_result = ptr_matrix_24_conv_1.GetPooled(
+    MATRIX_OPERATION_SUM,
+    MATRIX_PADDING_SAME,
+    2, 2, 2, 4, 0, // Pooling window.
+    2, 2, 2, 4, 0
+    );
+    
+  //ptr_matrix_24_conv_1_result.Reduce(true, MATRIX_OPERATION_SUM);
+    
+  Print(ptr_matrix_24_conv_1_result.ToString(true, 4));
+  
+  delete ptr_matrix_24_conv_1_result;
 
   return INIT_SUCCEEDED;
 }

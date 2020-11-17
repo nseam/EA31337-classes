@@ -311,11 +311,11 @@ class MatrixDimension {
   /**
    * Reduces dimension if it contains values. Goes recursively up to _level.
    */
-  void Reduce(int _level = 0, int _current_level = 0) {
+  void Reduce(int _level = 0, ENUM_MATRIX_OPERATION _reduce_op = MATRIX_OPERATION_SUM, int _current_level = 0) {
     int i;
     if (type == MATRIX_DIMENSION_TYPE_CONTAINERS && _current_level <= _level) {
       for (i = 0; i < ArraySize(containers); ++i) {
-        containers[i].Reduce(_level, _current_level + 1);
+        containers[i].Reduce(_level, _reduce_op, _current_level + 1);
       }
     }
 
@@ -324,7 +324,11 @@ class MatrixDimension {
       type = MATRIX_DIMENSION_TYPE_VALUES;
 
       for (i = 0; i < ArraySize(containers); ++i) {
-        AddValue(containers[i].values[0]);
+        X _sum = 0;
+        for (int k = 0; k < ArraySize(containers[i].values); ++k) {
+          _sum += containers[i].values[k];
+        }
+        AddValue(_sum);
         delete containers[i];
       }
 
@@ -1265,8 +1269,8 @@ class Matrix {
   /**
    * Reduces single or all dimensions containing only a single value.
    */
-  void Reduce(bool _only_last_dimension = true) {
-    ptr_first_dimension.Reduce(_only_last_dimension ? GetDimensions() - 1 : 0);
+  void Reduce(bool _only_last_dimension = true, ENUM_MATRIX_OPERATION _reduce_op = MATRIX_OPERATION_SUM) {
+    ptr_first_dimension.Reduce(_only_last_dimension ? GetDimensions() - 1 : 0, _reduce_op);
   }
 
   /**
@@ -1599,9 +1603,9 @@ class Matrix {
             const int _stride_3d, const int _stride_4d, const int _stride_5d, const int _chunk_1d, const int _chunk_2d,
             const int _chunk_3d, const int _chunk_4d, const int _chunk_5d) {
 #define _MATRIX_FOR_DIM(dim)                                        \
-  int _start_##dim##d = (_chunk_##dim##d * _stride_##dim##d);       \
-  for (int d##dim = (_chunk_##dim##d == -1) ? -1 : _start_##dim##d; \
-       (_chunk_##dim##d == -1) ? d##dim == -1 : d##dim < _start_##dim##d + _pool_##dim##d; ++d##dim)
+  int _start_##dim##d = _chunk_##dim##d == -1 ? 0 : (_chunk_##dim##d * _stride_##dim##d); \
+  for (int d##dim = (_chunk_##dim##d == -1) ? (dimensions[dim - 1] != 0 ? _start_##dim##d : -1) : _start_##dim##d; \
+       (d##dim == -1 || d##dim < _start_##dim##d + _pool_##dim##d); ++d##dim)
 
     X value = 0;
     MatrixDimensionAccessor<X> _accessor_d1, _accessor_d2, _accessor_d3, _accessor_d4, _accessor_d5;
@@ -1621,7 +1625,7 @@ class Matrix {
     X _val;
 
     _MATRIX_FOR_DIM(1) {
-      bool _d1_valid = d1 == -1 || (dimensions[0] > d1);
+      bool _d1_valid = d1 < dimensions[0] && d1 >= 0;
       if (!_d1_valid) {
         // We don't aggreate zeroes.
         continue;
@@ -1635,7 +1639,7 @@ class Matrix {
         }
 
         _MATRIX_FOR_DIM(2) {
-          bool _d2_valid = d2 == -1 || (dimensions[1] > d2);
+          bool _d2_valid = d2 < dimensions[1] && d2 >= 0;
           if (!_d2_valid) {
             // We don't aggreate zeroes.
             continue;
@@ -1650,7 +1654,7 @@ class Matrix {
             }
 
             _MATRIX_FOR_DIM(3) {
-              bool _d3_valid = d3 == -1 || (dimensions[2] > d3);
+              bool _d3_valid = d3 < dimensions[2] && d3 >= 0;
               if (!_d3_valid) {
                 // We don't aggreate zeroes.
                 continue;
@@ -1665,7 +1669,7 @@ class Matrix {
                 }
 
                 _MATRIX_FOR_DIM(4) {
-                  bool _d4_valid = d4 == -1 || (dimensions[3] > d4);
+                  bool _d4_valid = d4 < dimensions[3] && d4 >= 0;
                   if (!_d4_valid) {
                     // We don't aggreate zeroes.
                     continue;
@@ -1680,7 +1684,7 @@ class Matrix {
                     }
 
                     _MATRIX_FOR_DIM(5) {
-                      bool _d5_valid = d5 == -1 || (dimensions[4] > d5);
+                      bool _d5_valid = d5 < dimensions[4] && d5 >= 0;
                       if (!_d5_valid) {
                         // We don't aggreate zeroes.
                         continue;
@@ -1689,7 +1693,7 @@ class Matrix {
                         _accessor_d5 = _accessor_d4[d5];
 
                         if (_accessor_d4.Type() == MATRIX_DIMENSION_TYPE_VALUES) {
-                          _val = _accessor_d4.Val();
+                          _val = _accessor_d5.Val();
                           _MATRIX_AGGR(_val);
                           continue;
                         } else {
