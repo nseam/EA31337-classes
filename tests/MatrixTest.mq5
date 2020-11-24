@@ -583,42 +583,42 @@ int OnInit() {
     "["
       "["
         "["
-          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
-          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
-          "[-0.6827,  1.6293,  0.0355,  0.8605],"
-          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
-        "]"
+          "[1., 2.],"
+        "],"
         "["
-          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
-          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
-          "[-0.6827,  1.6293,  0.0355,  0.8605],"
-          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
-        "]"
+          "[3., 4.],"
+        "],"
       "]"
       "["
         "["
-          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
-          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
-          "[-0.6827,  1.6293,  0.0355,  0.8605],"
-          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
-        "]"
+          "[1., 1.],"
+        "],"
         "["
-          "[ 1.8633, -0.5302,  0.2838,  1.4266],"
-          "[ 0.1932,  1.2608, -0.4293,  1.0872],"
-          "[-0.6827,  1.6293,  0.0355,  0.8605],"
-          "[ 0.9603, -0.5600,  1.2433, -0.9552]"
-        "]"
+          "[5., 30.],"
+        "],"
       "]"
     "]");
 
+/*
   Matrix<double>* ptr_matrix_24_conv_1_result = ptr_matrix_24_conv_1.GetPooled(
     MATRIX_OPERATION_SUM,
     MATRIX_PADDING_SAME,
-    2, 2, 2, 4, 0, // Pooling window.
-    2, 2, 2, 4, 0
+    1, 2, 1, 2, 0, // Pooling window.
+    1, 2, 1, 2, 0
     );
+*/
     
-  //ptr_matrix_24_conv_1_result.Reduce(true, MATRIX_OPERATION_SUM);
+  Matrix<double>* ptr_matrix_24_conv_1_result = ptr_matrix_24_conv_1.GetConv2d(
+    2, 3, // Input, output channels.
+    1, 1, // Kernel size.
+    1, 1  // Stride.
+    );
+
+  Print(ptr_matrix_24_conv_1_result.Repr());
+
+  ptr_matrix_24_conv_1_result.Reduce(2, MATRIX_OPERATION_SUM);
+  
+  Print(ptr_matrix_24_conv_1_result.Repr());
     
   Print(ptr_matrix_24_conv_1_result.ToString(true, 4));
   
