@@ -26,6 +26,7 @@
 
 // Includes.
 #include "Convert.mqh"
+#include "Flags.h"
 #include "Serializer.define.h"
 #include "Serializer.enum.h"
 #include "SerializerConverter.mqh"
@@ -44,7 +45,7 @@ class Serializer {
   bool _skip_hidden;
   string _single_value_name;
 
-  unsigned int _flags;
+  Flags<int> _flags;
 
   // Floating-point precision.
   int fp_precision;
@@ -53,14 +54,11 @@ class Serializer {
   /**
    * Constructor.
    */
-  Serializer(SerializerNode* node, SerializerMode mode, int flags) : _node(node), _mode(mode), _flags(flags) {
+  Serializer(SerializerNode* node, SerializerMode mode, int flags) : _node(node), _mode(mode) {
+    _flags = Flags<int>(flags, SERIALIZER_FLAG_INCLUDE_ALL);
     _root = node;
     _root_node_ownership = true;
     fp_precision = SERIALIZER_DEFAULT_FP_PRECISION;
-    if (_flags == 0) {
-      // Preventing flags misuse.
-      _flags = SERIALIZER_FLAG_INCLUDE_ALL;
-    }
   }
 
   /**
@@ -132,7 +130,7 @@ class Serializer {
   /**
    * Checks whether we are in serialization process. Used in custom Serialize() method.
    */
-  bool IsWriting() { return _mode == Serialize || bool(_flags & SERIALIZER_FLAG_SIMULATE_SERIALIZE); }
+  bool IsWriting() { return _mode == Serialize || _flags.HasFlag(SERIALIZER_FLAG_SIMULATE_SERIALIZE); }
 
   /**
    * Checks whether we are in unserialization process. Used in custom Serialize() method.
@@ -209,30 +207,30 @@ class Serializer {
     }
   }
 
-  bool IsFieldVisible(int serializer_flags, int field_flags) {
+  bool IsFieldVisible(Flags<int> &serializer_flags, Flags<int> &field_flags) {
     // Is field visible? Such field cannot be exluded in anyway.
-    if ((field_flags & SERIALIZER_FIELD_FLAG_VISIBLE) == SERIALIZER_FIELD_FLAG_VISIBLE) {
+    if (field_flags.HasFlag(SERIALIZER_FIELD_FLAG_VISIBLE)) {
       return true;
     }
 
-    if ((field_flags & SERIALIZER_FIELD_FLAG_HIDDEN) == SERIALIZER_FIELD_FLAG_HIDDEN) {
-      if ((serializer_flags & SERIALIZER_FLAG_SKIP_HIDDEN) != SERIALIZER_FLAG_SKIP_HIDDEN) {
+    if (field_flags.HasFlag(SERIALIZER_FIELD_FLAG_HIDDEN)) {
+      if (serializer_flags.HasFlag(SERIALIZER_FLAG_SKIP_HIDDEN)) {
         // Field is hidden, but serializer has no SERIALIZER_FLAG_SKIP_HIDDEN flag set, so field will be serialized.
         return true;
       }
     }
 
     // Is field hidden?
-    if ((serializer_flags & SERIALIZER_FLAG_SKIP_HIDDEN) == SERIALIZER_FLAG_SKIP_HIDDEN) {
-      if ((field_flags & SERIALIZER_FIELD_FLAG_HIDDEN) == SERIALIZER_FIELD_FLAG_HIDDEN) {
+    if (serializer_flags.HasFlag(SERIALIZER_FLAG_SKIP_HIDDEN)) {
+      if (field_flags.HasFlag(SERIALIZER_FIELD_FLAG_HIDDEN)) {
         return false;
       }
     }
 
     // Is field default?
-    if ((serializer_flags & SERIALIZER_FLAG_EXCLUDE_DEFAULT) == SERIALIZER_FLAG_EXCLUDE_DEFAULT) {
-      if ((field_flags & SERIALIZER_FIELD_FLAG_DEFAULT) == SERIALIZER_FIELD_FLAG_DEFAULT) {
-        if ((serializer_flags & SERIALIZER_FLAG_INCLUDE_DEFAULT) == SERIALIZER_FLAG_INCLUDE_DEFAULT) {
+    if (serializer_flags.HasFlag(SERIALIZER_FLAG_EXCLUDE_DEFAULT)) {
+      if (field_flags.HasFlag(SERIALIZER_FIELD_FLAG_DEFAULT)) {
+        if (serializer_flags.HasFlag(SERIALIZER_FLAG_INCLUDE_DEFAULT)) {
           // Field was excluded by e.g., dynamic or feature type, but included explicitly by flag.
           return true;
         } else {
@@ -243,15 +241,15 @@ class Serializer {
     }
 
     // Is field dynamic?
-    if ((serializer_flags & SERIALIZER_FLAG_INCLUDE_DYNAMIC) == SERIALIZER_FLAG_INCLUDE_DYNAMIC) {
-      if ((field_flags & SERIALIZER_FIELD_FLAG_DYNAMIC) == SERIALIZER_FIELD_FLAG_DYNAMIC) {
+    if (serializer_flags.HasFlag(SERIALIZER_FLAG_INCLUDE_DYNAMIC)) {
+      if (field_flags.HasFlag(SERIALIZER_FIELD_FLAG_DYNAMIC)) {
         return true;
       }
     }
 
     // Is field a feature?
-    if ((serializer_flags & SERIALIZER_FLAG_INCLUDE_FEATURE) == SERIALIZER_FLAG_INCLUDE_FEATURE) {
-      if ((field_flags & SERIALIZER_FIELD_FLAG_FEATURE) == SERIALIZER_FIELD_FLAG_FEATURE) {
+    if (serializer_flags.HasFlag(SERIALIZER_FLAG_INCLUDE_FEATURE)) {
+      if (field_flags.HasFlag(SERIALIZER_FIELD_FLAG_FEATURE)) {
         return true;
       }
     }
@@ -300,7 +298,7 @@ class Serializer {
    * Serializes or unserializes enum value (stores it as integer).
    */
   template <typename T, typename V>
-  void PassEnum(T& self, string name, V& value, unsigned int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
+  void PassEnum(T& self, string name, V& value, int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
     int enumValue;
     if (_mode == Serialize) {
       if (!IsFieldVisible(_flags, flags)) {
@@ -316,7 +314,7 @@ class Serializer {
   }
 
   template <typename T, typename VT>
-  void PassArray(T& self, string name, ARRAY_REF(VT, array), unsigned int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
+  void PassArray(T& self, string name, ARRAY_REF(VT, array), int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
     int num_items;
 
     if (_mode == Serialize) {
@@ -359,7 +357,7 @@ class Serializer {
    * Serializes or unserializes pointer to object.
    */
   template <typename T, typename V>
-  void Pass(T& self, string name, V*& value, unsigned int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
+  void Pass(T& self, string name, V*& value, int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
     if (_mode == Serialize) {
       if (!IsFieldVisible(_flags, flags)) {
         return;
@@ -379,7 +377,7 @@ class Serializer {
    * Serializes or unserializes simple value.
    */
   template <typename T, typename V>
-  SerializerNode* Pass(T& self, string name, V& value, unsigned int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
+  SerializerNode* Pass(T& self, string name, V& value, int flags = SERIALIZER_FIELD_FLAG_DEFAULT) {
     SerializerNode* child = NULL;
     bool _skip_push = (_flags & SERIALIZER_FLAG_SKIP_PUSH) == SERIALIZER_FLAG_SKIP_PUSH;
 
