@@ -37,10 +37,10 @@
 struct DataParamEntry;
 
 // Includes class enum and structs.
+#include "DateTime.extern.h"
 #include "Array.mqh"
 #include "Data.struct.h"
 #include "DateTime.enum.h"
-#include "DateTime.extern.h"
 #include "DateTime.struct.h"
 
 #ifndef __MQL4__
@@ -243,4 +243,16 @@ class DateTime {
     return DateTime::CheckCondition(_cond, _args);
   }
 };
+
+#ifndef __MQL__
+
+datetime TimeCurrent() { return PlatformTime::CurrentTimestamp(); }
+
+datetime TimeCurrent(MqlDateTime& dt_struct) {
+  dt_struct = PlatformTime::CurrentTime();
+  return PlatformTime::CurrentTimestamp();
+}
+
+#endif
+
 #endif  // DATETIME_MQH

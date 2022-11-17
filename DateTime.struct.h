@@ -35,6 +35,7 @@ struct DateTimeStatic;
 
 // Includes.
 #include "DateTime.enum.h"
+#include "PlatformTime.h"
 #include "Std.h"
 
 #ifndef __MQLBUILD__

@@ -32,6 +32,7 @@
 
 #include "Convert.extern.h"
 #include "DateTime.extern.h"
+#include "DateTime.mqh"
 #include "Object.mqh"
 #include "Refs.struct.h"
 

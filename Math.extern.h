@@ -22,28 +22,20 @@
 
 // Define external global functions.
 #ifndef __MQL__
-template <typename T>
-extern T MathAbs(T value);
-template <typename T>
-extern T fabs(T value);
-template <typename T>
-extern T pow(T base, T exponent);
-template <typename T>
-extern T MathPow(T base, T exponent);
-template <typename T>
-extern T round(T value);
-template <typename T>
-extern T MathRound(T value);
-template <typename T>
-extern T fmax(T value1, T value2);
-template <typename T>
-extern T MathMax(T value1, T value2);
-template <typename T>
-extern T fmin(T value1, T value2);
-template <typename T>
-extern T MathMin(T value1, T value2);
-template <typename T>
-extern T MathLog10(T value1);
-template <typename T>
-extern T log10(T value);
+#pragma once
+
+#include <stdint.h>
+
+template <typename T> T MathAbs(T value) { return std::abs(value); }
+template <typename T> T fabs(T value) { return std::abs(value); }
+template <typename T> T pow(T base, T exponent) { return (T)std::pow(base, exponent); }
+template <typename T> T MathPow(T base, T exponent) { return std::pow(base, exponent); }
+template <typename T> T round(T value) { return std::round(value); }
+template <typename T> T MathRound(T value) { return std::round(value); }
+template <typename T> T fmax(T value1, T value2) { return std::max(value1, value2); }
+template <typename T> T MathMax(T value1, T value2) { return std::max(value1, value2); }
+template <typename T> T fmin(T value1, T value2) { return std::min(value1, value2); }
+template <typename T> T MathMin(T value1, T value2) { return std::min(value1, value2); }
+template <typename T> T MathLog10(T value) { return std::log10(value); }
+template <typename T> T log10(T value) { return std::log10(value); }
 #endif
