@@ -121,8 +121,6 @@ bool StringInit(string& string_var, int new_len = 0, unsigned short character = 
 string CharArrayToString(ARRAY_REF(unsigned char, arr), int start = 0, int count = -1, unsigned int codepage = CP_ACP) {
   if (count == -1) count = (arr.size() - start);
 
-  int _end = MathMin(count - start, arr.size());
-
   string result;
   StringInit(result, count);
 

@@ -70,13 +70,8 @@ struct ExchangeParams {
   template <typename T>
   void Set(ENUM_TRADE_PARAM _param, T _value) {
     switch (_param) {
-      case EXCHANGE_PARAM_ID:
-        ConvertBasic::Convert(_value, id);
-        return;
-      case EXCHANGE_PARAM_NAME:
-        ConvertBasic::Convert(_value, name);
-        return;
       default:
+        Alert(string(__FUNCSIG__ + " is not implemented!"));
         break;
     }
     SetUserError(ERR_INVALID_PARAMETER);

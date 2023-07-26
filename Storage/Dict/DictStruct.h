@@ -443,8 +443,12 @@ class DictStruct : public DictBase<K, V> {
 #endif
   SerializerNodeType Serialize(Serializer& s) {
     if (s.IsWriting()) {
-      for (DictIteratorBase<K, V> i(Begin()); i.IsValid(); ++i)
-        s.PassObject(THIS_REF, THIS_ATTR GetMode() == DictModeDict ? i.KeyAsString() : "", i.Value());
+      for (DictStructIterator<K, V> i(Begin()); i.IsValid(); ++i) {
+        // i.Value() is returning value and not a reference, thus we can't pass i.Value() directly to the PassStruct()
+        // as it takes reference.
+        V _value = i.Value();
+        s.PassStruct(THIS_REF, THIS_ATTR GetMode() == DictModeDict ? i.KeyAsString() : "", _value);
+      }
 
       return (THIS_ATTR GetMode() == DictModeDict) ? SerializerNodeObject : SerializerNodeArray;
     } else {
@@ -475,9 +479,15 @@ class DictStruct : public DictBase<K, V> {
 
             // Note that we're retrieving value by a key (as we are in an
             // object!).
-            Set(key, s.Struct<V>(i.Key()));
+            // Set() is expecting a reference value, so we make a temporary value, deserialize into it and pass it into
+            // Set().
+            V _value = s.Struct<V>(i.Key());
+            Set(key, _value);
           } else {
-            Push(s.Struct<V>());
+            // Push() is expecting a reference value, so we make a temporary value, deserialize into it and pass it into
+            // Push() method which adds value to the dict.
+            V _value = s.Struct<V>();
+            Push(_value);
           }
         }
         return i.ParentNodeType();

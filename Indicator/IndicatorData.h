@@ -217,7 +217,7 @@ class IndicatorData : public IndicatorBase {
   /**
    * Get full name of the indicator (with "over ..." part).
    */
-  string GetFullName() {
+  string GetFullName() override {
     int _max_modes = Get<int>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_MAX_MODES));
     string _mode;
 
@@ -1161,7 +1161,7 @@ class IndicatorData : public IndicatorBase {
   /**
    * Gets OHLC price values.
    */
-  virtual BarOHLC GetOHLC(int _rel_shift = 0) { return GetCandle() PTR_DEREF GetOHLC(_rel_shift); }
+  BarOHLC GetOHLC(int _rel_shift = 0) override { return GetCandle() PTR_DEREF GetOHLC(_rel_shift); }
 
   /**
    * Returns the number of bars on the chart decremented by iparams.shift.
@@ -1298,7 +1298,7 @@ class IndicatorData : public IndicatorBase {
   /**
    * Get name of the indicator.
    */
-  virtual string GetName() { return EnumToString(GetType()); }
+  string GetName() override { return EnumToString(GetType()); }
 
   /**
    * Gets open price for a given, optional shift.
