@@ -32,13 +32,22 @@
  * Implements OnInit().
  */
 int OnInit() {
+  Alert("Error: Line ", __LINE__, ": _LastError = ", _LastError);
   SymbolInfo *si = new SymbolInfo();
   // Symbol test.
   assertTrueOrFail(si.GetSymbol() == _Symbol, "Invalid class symbol!");
   // Tick test.
+  Alert("Error: Line ", __LINE__, ": _LastError = ", _LastError);
   MqlTick stick = SymbolInfoStatic::GetTick(_Symbol);
+  Alert("Error: Line ", __LINE__, ": _LastError = ", _LastError);
   MqlTick dtick = si.GetTick();
+  Alert("Error: Line ", __LINE__, ": _LastError = ", _LastError);
   MqlTick ltick = si.GetLastTick();
+  Alert("Error: Line ", __LINE__, ": _LastError = ", _LastError);
+  Alert("Error: stick.ask = ", stick.ask, ", stick.ask = ", stick.ask);
+  Alert("Error: stick.bid = ", stick.bid, ", stick.bid = ", stick.bid);
+  Alert("Error: dtick.ask = ", dtick.ask, ", ltick.ask = ", ltick.ask);
+  Alert("Error: dtick.bid = ", dtick.bid, ", ltick.bid = ", ltick.bid);
   assertTrueOrFail(dtick.ask > 0 && dtick.ask == ltick.ask, "Invalid: Current Ask price");
   assertTrueOrFail(dtick.bid > 0 && dtick.bid == ltick.bid, "Invalid: Current Bid price");
   assertTrueOrFail(dtick.last == ltick.last, "Invalid: Price of the last deal (Last)");

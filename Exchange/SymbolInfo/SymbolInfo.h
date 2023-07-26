@@ -115,6 +115,7 @@ class SymbolInfo : public Object {
    */
   MqlTick GetTick() {
     if (!SymbolInfoTick(symbol, last_tick)) {
+      Alert("Error: SymbolInfo::GetTick() returned false. Market is probably closed.");
       GetLogger() PTR_DEREF Error("Cannot return current prices!", __FUNCTION__);
     }
     return last_tick;
