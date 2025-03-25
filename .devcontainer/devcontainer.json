@@ -53,5 +53,6 @@
 
    // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
    "remoteUser": "vscode",
-   "onCreateCommand": "sudo apt update && sudo apt install -y pipx && pipx install --include-deps ansible"
+   "onCreateCommand": "rm -rf /workspaces/MQL-Compiler-VScode; sudo apt update && sudo apt install -y pipx && pipx install --include-deps ansible && git clone https://github.com/nseam/MQL-Compiler-VScode.git /workspaces/MQL-Compiler-VScode && cd /workspaces/MQL-Compiler-VScode && npm install && npm run package",
+   "postAttachCommand": "code --install-extension /workspaces/MQL-Compiler-VScode/mql-compiler-vscode-0.1.0.vsix"
 }
