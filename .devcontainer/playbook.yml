@@ -1,0 +1,6 @@
+---
+- name: Install ansible-role-metatrader role
+  hosts: localhost
+  roles:
+    - role: ansible-role-metatrader
+      tags: metatrader

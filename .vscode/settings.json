@@ -4,5 +4,14 @@
         "*.mq4": "cpp",
         "*.mq5": "cpp",
         "*.mqh": "cpp"
-    }
+    },
+    "C_Cpp.default.includePath": [
+        "Z:\\workspaces\\EA31337-classes"
+    ],
+    "mql_compiler.MTE.IncludePath5": "Z:\\workspaces\\EA31337-classes",
+    "mql_compiler.MTE.IncludePath5IsWinePath": true,
+    "mql_compiler.MTE.MetaEditor5Path": "C:\\Program Files\\MetaTrader 5\\MetaEditor64.exe",
+    "mql_compiler.MTE.MetaEditor5PathIsWinePath": true,
+    "mql_compiler.MTE.PassThroughWSL": false,
+    "mql_compiler.MTE.RemoveLog": false
 }
