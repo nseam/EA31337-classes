@@ -875,12 +875,20 @@ double iMAOnArray(ARRAY_REF(double, _arr), int _total, int _period, int _ma_shif
 #ifdef __EMSCRIPTEN__
 #include <emscripten/bind.h>
 
+EMSCRIPTEN_BINDINGS(ENUM_MA_METHOD) {
+  emscripten::enum_<ENUM_MA_METHOD>("ma_methods")
+      .value("SMA", MODE_SMA)
+      .value("EMA", MODE_EMA)
+      .value("SMMA", MODE_SMMA)
+      .value("LWMA", MODE_LWMA);
+}
+
 EMSCRIPTEN_BINDINGS(Indi_MA_Params) {
   emscripten::value_object<IndiMAParams>("indicators.MAParams")
       .field("period", &IndiMAParams::period)
-      .field("maShift", &IndiMAParams::ma_shift)
-      .field("maMethod", &IndiMAParams::ma_method)
-      .field("appliedPrice", &IndiMAParams::applied_array)
+      .field("ma_shift", &IndiMAParams::ma_shift)
+      .field("ma_method", &IndiMAParams::ma_method)
+      .field("applied_price", &IndiMAParams::applied_array)
       // Inherited fields:
       .field("shift", &IndiMAParams::shift);
 }

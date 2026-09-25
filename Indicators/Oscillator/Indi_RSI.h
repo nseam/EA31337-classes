@@ -366,7 +366,7 @@ double iRSIOnArray(ARRAY_REF(double, _arr), int _total, int _period, int _abs_sh
 EMSCRIPTEN_BINDINGS(Indi_RSI_Params) {
   emscripten::value_object<IndiRSIParams>("indicators.RSIParams")
       .field("period", &IndiRSIParams::period)
-      .field("appliedPrice", &IndiRSIParams::applied_price)
+      .field("applied_price", &IndiRSIParams::applied_price)
       // Inherited fields:
       .field("shift", &IndiRSIParams::shift);
 }

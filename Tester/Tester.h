@@ -272,7 +272,7 @@ class Tester {
         // Now it's time to retrieve values for the given time range and aggregate them into given time-step.
         REF_TO(TesterValuesColumns) columns = values.timestep_based[_iter.Index()];
         
-        columns.indicator_info = TesterIndicatorInfo(_indi PTR_DEREF GetName(), 0, 0, _indi PTR_DEREF GetSymbol(), _tf);
+        columns.indicator_info = TesterIndicatorInfo(_indi PTR_DEREF GetName(), 0, _indi PTR_DEREF GetModeCount(), _indi PTR_DEREF GetSymbol(), _tf);
 
         GetValuesForTimeFrameBasedIndicatorUngrouped(_indi, /*_time_from_ms, _time_to_ms, _time_step_secs*/ columns);
 
@@ -376,18 +376,32 @@ class Tester {
    **/
   // Generates a single random TickTAB<double> for a given time.
   static TickTAB<double> RandomizeTick(int64 time_ms) {
-    // Use a sinusoidal price to guarantee that RSI oscillates visibly.
-    // - Mean price = 1.0, amplitude = 0.3  → range [0.7, 1.3]
-    // - One full price cycle = 120 ticks = 40 M1 bars (3 ticks/bar)
-    // - RSI period is 13 bars. The half-cycle (20 bars) must be > RSI period so
-    //   the SMMA can track each direction change and produce clear oscillations.
-    const double _mean        = 1.0;
-    const double _amplitude   = 0.3;
+    // Use a random walk to produce smooth, continuously changing prices.
+    // Static accumulators persist across calls so each tick builds on the previous one,
+    // avoiding the repeating discrete values caused by absolute-time sine evaluation.
+    static double _ask  = 1.0;  // starting price
+    static double _bid  = 1.2;  // starting bid (spread = 0.2)
+    static int    _step = 0;    // tick step counter for slight bias drift
+
+    // Small random increments scaled to produce visible but smooth movements.
+    // Each tick changes price by roughly +/-0.01 (plus/minus 1 pip on a 1.0 price).
+    const double _noise_scale = 0.04;
     const double _spread      = 0.2;
-    const double _pi          = acos(-1.0);
-    const int    _cycle_ticks = 120; // ticks per full price cycle (40 M1 bars)
-    double _ask = _mean + _amplitude * sin(2.0 * _pi * time_ms / _cycle_ticks);
-    double _bid = _ask + _spread;
+
+    // Add random noise to the current price (random walk).
+    _ask = _ask + (_noise_scale * (drand48() - 0.5));
+    _bid = _ask + _spread;
+
+    // Very slight mean-reverting drift back toward 1.0 every ~60 ticks
+    // to prevent the random walk from drifting too far over time.
+    _step++;
+    if (_step % 60 == 0) {
+      const double _drift = (1.0 - _ask) * 0.05;
+      _ask += _drift;
+      _bid = _ask + _spread;
+    }
+
+    // Print("Randomized tick: time_ms=", time_ms, ", ask=", _ask, ", bid=", _bid);
     return TickTAB<double>(time_ms, _ask, _bid);
   }
 
@@ -397,7 +411,7 @@ class Tester {
 
     // We start at 2000-01-01, but it doesn't matter. We just need to have increasing time for each tick.
     int64 _dt = 946684800;
-    for (int i = 0; i < 600; ++i) {
+    for (int i = 0; i < 1200; ++i) {
       int64 time_ms = (_dt + i * 20) * 1000;
       ArrayPush(_ticks, RandomizeTick(time_ms));
     }
@@ -437,8 +451,8 @@ class Tester {
         continue;
       }
 
-      // Forcing indicator to calculate its value for the current tick.
       /*
+      // Forcing indicator to calculate its value for the current tick.
       IndicatorDataEntry _entry = _iter.Value() REF_DEREF GetEntry();
 
       if (_entry.IsValid()) {

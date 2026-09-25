@@ -39,7 +39,6 @@ template <typename C>
 class NativeValueStorage : public ValueStorage<C> {
   // Dynamic native array.
   ARRAY(C, _values);
-  int _values_size;
 
  public:
   /**
@@ -50,7 +49,9 @@ class NativeValueStorage : public ValueStorage<C> {
   /**
    * Destructor.
    */
-  NativeValueStorage(ARRAY_REF(C, _arr)) { SetData(_arr); }
+  NativeValueStorage(ARRAY_REF(C, _arr)) {
+    SetData(_arr);
+  }
 
   /**
    * Initializes array with given one.
@@ -61,7 +62,6 @@ class NativeValueStorage : public ValueStorage<C> {
     ArraySetAsSeries(_values, false);
     ArrayResize(_values, 0);
     ArrayCopy(_values, _arr);
-    _values_size = ArraySize(_arr);
     ArraySetAsSeries(_arr, _was_series);
     ArraySetAsSeries(_values, _was_series);
   }
@@ -77,8 +77,9 @@ class NativeValueStorage : public ValueStorage<C> {
    * Note that this storage type operates on absolute shifts!
    */
   C Fetch(int _abs_shift) override {
+    Print("Fetching value at absolute shift: ", _abs_shift, ", Buffer size is ", Size());
     if (_abs_shift < 0 || _abs_shift >= Size()) {
-      // Alert("Error: NativeValueStorage: Invalid buffer data index: ", _shift, ". Buffer size: ", Size());
+      Alert("Error: NativeValueStorage: Invalid buffer data index: ", _abs_shift, ". Buffer size: ", Size());
       // DebugBreak();
       return (C)EMPTY_VALUE;
     }
@@ -103,7 +104,7 @@ class NativeValueStorage : public ValueStorage<C> {
   /**
    * Returns number of values available to fetch (size of the values buffer).
    */
-  int Size() override { return _values_size; }
+  int Size() override { return ArraySize(_values); }
 
   /**
    * Resizes storage to given size.

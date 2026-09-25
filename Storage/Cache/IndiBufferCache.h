@@ -246,7 +246,7 @@ class IndiBufferCache : public Dynamic {
   template <typename D>
   D GetTailValue(int _buffer_index, int _shift) {
     ValueStorage<D> *_buff = REF_TO_PTR(GetBuffer<D>(_buffer_index));
-    int _index = _buff PTR_DEREF IsSeries() ? _shift : (ArraySize(PTR_TO_REF(_buff)) - _shift - 1);
+    int _index = _buff PTR_DEREF IsSeries() ? _shift : (total - _shift - 1);
     return PTR_TO_REF(_buff)[_index].Get();
   }
 

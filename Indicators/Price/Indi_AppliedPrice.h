@@ -166,7 +166,7 @@ class Indi_AppliedPrice : public Indicator<IndiAppliedPriceParams> {
 
 EMSCRIPTEN_BINDINGS(Indi_AppliedPrice_Params) {
   emscripten::value_object<IndiAppliedPriceParams>("indicators.AppliedPriceParams")
-      .field("appliedPrice", &IndiAppliedPriceParams::applied_price)
+      .field("applied_price", &IndiAppliedPriceParams::applied_price)
       // Inherited fields:
       .field("shift", &IndiAppliedPriceParams::shift);
 }
