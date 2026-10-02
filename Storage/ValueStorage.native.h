@@ -77,7 +77,7 @@ class NativeValueStorage : public ValueStorage<C> {
    * Note that this storage type operates on absolute shifts!
    */
   C Fetch(int _abs_shift) override {
-    Print("Fetching value at absolute shift: ", _abs_shift, ", Buffer size is ", Size());
+    // Print("Fetching value at absolute shift: ", _abs_shift, ", Buffer size is ", Size());
     if (_abs_shift < 0 || _abs_shift >= Size()) {
       Alert("Error: NativeValueStorage: Invalid buffer data index: ", _abs_shift, ". Buffer size: ", Size());
       // DebugBreak();
