@@ -49,11 +49,26 @@ struct TesterIndicatorInfo {
   // Symbol pair indicator works on.
   string symbol;
 
+  // Number of digits for the symbol.
+  int symbol_digits;
+
   // Time-frame indicator works on.
   ENUM_TIMEFRAMES tf;
 
+  // Data type of the indicator's values.
+  ENUM_DATATYPE data_type;
+
+  // Indicator's range value data type. E.g., unknown, fixed, dynamic.
+  ENUM_IDATA_VALUE_RANGE value_range;
+
+  // Indicator color.
+  color indi_color;
+
   // Constructor.
   TesterIndicatorInfo(string _name = "", int _index = -1, int _num_values = 0, string _symbol = "",
-                      ENUM_TIMEFRAMES _tf = PERIOD_CURRENT)
-      : name(_name), index(_index), num_values(_num_values), symbol(_symbol), tf(_tf) {}
+                      ENUM_TIMEFRAMES _tf = PERIOD_CURRENT, ENUM_DATATYPE _data_type = TYPE_DOUBLE,
+                      ENUM_IDATA_VALUE_RANGE _value_range = IDATA_RANGE_UNKNOWN, color _indi_color = clrNONE,
+                      int _symbol_digits = 0)
+      : name(_name), index(_index), num_values(_num_values), symbol(_symbol), symbol_digits(_symbol_digits),
+        tf(_tf), data_type(_data_type), value_range(_value_range), indi_color(_indi_color) {}
 };

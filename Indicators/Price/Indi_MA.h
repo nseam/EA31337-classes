@@ -693,10 +693,10 @@ class Indi_MA : public Indicator<IndiMAParams> {
   }
 
   static double SimpleMA(const int position, const int period, ValueStorage<double> &price) {
+    if (period <= 0 || position < period - 1) return 0.0;
+
     double result = 0.0;
-    for (int i = 0; i < period; i++) {
-      result += price[i].Get();
-    }
+    for (int i = 0; i < period; i++) result += price[position - i].Get();
     result /= period;
     return result;
   }

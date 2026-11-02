@@ -44,7 +44,7 @@ struct IndiMomentumParams : IndicatorParams {
   ENUM_APPLIED_PRICE applied_price;
   // Struct constructors.
   IndiMomentumParams(unsigned int _period = 12, ENUM_APPLIED_PRICE _ap = PRICE_OPEN, int _shift = 0)
-      : period(_period), applied_price(_ap), IndicatorParams(INDI_MOMENTUM) {
+      : IndicatorParams(INDI_MOMENTUM), period(_period), applied_price(_ap) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\Momentum");
   };
@@ -132,14 +132,14 @@ class Indi_Momentum : public Indicator<IndiMomentumParams> {
     return ::iMomentumOnArray(array, total, period, shift);
 #else
     Indi_PriceFeeder indi_price_feeder(array);
-    return iMomentumOnIndicator(&indi_price_feeder, NULL, PERIOD_CURRENT, period, /*unused*/ PRICE_OPEN, shift);
+    return iMomentumOnIndicator(&indi_price_feeder, NULL_STRING, PERIOD_CURRENT, period, /*unused*/ PRICE_OPEN, shift);
 #endif
   }
 
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
@@ -170,6 +170,9 @@ class Indi_Momentum : public Indicator<IndiMomentumParams> {
           // draw.DrawLineTo(StringFormat("%s", GetName()), GetBarTime(iparams.shift + ToRelShift(_abs_shift)), _value,
           // 1);
         }
+        break;
+      default:
+        SetUserError(ERR_INVALID_PARAMETER);
         break;
     }
     return _value;

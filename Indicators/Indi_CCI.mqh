@@ -37,7 +37,7 @@ struct IndiCCIParams : IndicatorParams {
   ENUM_APPLIED_PRICE applied_price;
   // Struct constructors.
   IndiCCIParams(unsigned int _period = 14, ENUM_APPLIED_PRICE _applied_price = PRICE_OPEN, int _shift = 0)
-      : period(_period), applied_price(_applied_price), IndicatorParams(INDI_CCI) {
+      : IndicatorParams(INDI_CCI), period(_period), applied_price(_applied_price) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\CCI");
   };
@@ -146,7 +146,7 @@ class Indi_CCI : public Indicator<IndiCCIParams> {
     return ::iCCIOnArray(array, total, period, shift);
 #else
     Indi_PriceFeeder indi_price_feeder(array);
-    return iCCIOnIndicator(&indi_price_feeder, NULL, PERIOD_CURRENT, period, /*unused*/ PRICE_OPEN, shift);
+    return iCCIOnIndicator(&indi_price_feeder, NULL_STRING, PERIOD_CURRENT, period, /*unused*/ PRICE_OPEN, shift);
 #endif
   }
 
@@ -164,7 +164,7 @@ class Indi_CCI : public Indicator<IndiCCIParams> {
    * Note that in MQL5 Applied Price must be passed as the last parameter
    * (before mode and shift).
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
@@ -187,6 +187,9 @@ class Indi_CCI : public Indicator<IndiCCIParams> {
         // @fixit Somehow shift isn't used neither in MT4 nor MT5.
         _value = Indi_CCI::iCCIOnIndicator(GetDataSource(), GetSymbol(), GetTf(), GetPeriod(),
                                            ToRelShift(_abs_shift) /* + iparams.shift*/);
+        break;
+      default:
+        SetUserError(ERR_INVALID_PARAMETER);
         break;
     }
     return _value;

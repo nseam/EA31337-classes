@@ -34,11 +34,17 @@
 #include "../../Indicator/Indicator.h"
 #include "../../Platform/Terminal.h"
 
+#ifdef __MQL__
+#define INDI_WPR_DEFAULT_SOURCE_MODE IDATA_BUILTIN
+#else
+#define INDI_WPR_DEFAULT_SOURCE_MODE IDATA_INDICATOR
+#endif
+
 // Structs.
 struct IndiWPRParams : IndicatorParams {
   unsigned int period;
   // Struct constructors.
-  IndiWPRParams(unsigned int _period = 14, int _shift = 0) : period(_period), IndicatorParams(INDI_WPR) {
+  IndiWPRParams(unsigned int _period = 14, int _shift = 0) : IndicatorParams(INDI_WPR), period(_period) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\WPR");
   };
@@ -53,11 +59,13 @@ class Indi_WPR : public Indicator<IndiWPRParams> {
   /**
    * Class constructor.
    */
-  Indi_WPR(IndiWPRParams &_p, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, IndicatorData *_indi_src = NULL,
+  Indi_WPR(IndiWPRParams &_p, ENUM_IDATA_SOURCE_TYPE _idstype = INDI_WPR_DEFAULT_SOURCE_MODE,
+           IndicatorData *_indi_src = NULL,
            int _indi_src_mode = 0)
       : Indicator(_p, IndicatorDataParams::GetInstance(1, TYPE_DOUBLE, _idstype, IDATA_RANGE_RANGE, _indi_src_mode),
                   _indi_src) {}
-  Indi_WPR(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, IndicatorData *_indi_src = NULL,
+  Indi_WPR(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = INDI_WPR_DEFAULT_SOURCE_MODE,
+           IndicatorData *_indi_src = NULL,
            int _indi_src_mode = 0)
       : Indicator(IndiWPRParams(),
                   IndicatorDataParams::GetInstance(1, TYPE_DOUBLE, _idstype, IDATA_RANGE_RANGE, _indi_src_mode),
@@ -65,17 +73,17 @@ class Indi_WPR : public Indicator<IndiWPRParams> {
   /**
    * Returns possible data source types. It is a bit mask of ENUM_INDI_SUITABLE_DS_TYPE.
    */
-  unsigned int GetSuitableDataSourceTypes() override { return INDI_SUITABLE_DS_TYPE_EXPECT_NONE; }
+  unsigned int GetSuitableDataSourceTypes() override { return INDI_SUITABLE_DS_TYPE_CANDLE; }
 
   /**
    * Returns possible data source modes. It is a bit mask of ENUM_IDATA_SOURCE_TYPE.
    */
-  unsigned int GetPossibleDataModes() override { return IDATA_BUILTIN | IDATA_ICUSTOM; }
+  unsigned int GetPossibleDataModes() override { return IDATA_BUILTIN | IDATA_ICUSTOM | IDATA_INDICATOR; }
 
   /**
    * Checks if indicator entry values are valid.
    */
-  virtual bool IsValidEntry(IndicatorDataEntry &_entry) { return _entry.IsWithinRange(-100.0, 0.0); }
+  virtual bool IsValidEntry(IndicatorDataEntry &_entry) override { return _entry.IsWithinRange(-100.0, 0.0); }
 
   /**
    * Calculates the Larry Williams' Percent Range and returns its value.
@@ -84,7 +92,7 @@ class Indi_WPR : public Indicator<IndiWPRParams> {
    * - https://docs.mql4.com/indicators/iwpr
    * - https://www.mql5.com/en/docs/indicators/iwpr
    */
-  static double iWPR(string _symbol = NULL, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT, unsigned int _period = 14,
+  static double iWPR(string _symbol = NULL_STRING, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT, unsigned int _period = 14,
                      int _shift = 0, IndicatorData *_obj = NULL) {
 #ifdef __MQL__
 #ifdef __MQL4__
@@ -117,22 +125,66 @@ class Indi_WPR : public Indicator<IndiWPRParams> {
     return _res[0];
 #endif
 #else  // Non-MQL.
-    // @todo: Use Platform class.
-    RUNTIME_ERROR(
-        "Not implemented. Please use an On-Indicator mode and attach "
-        "indicator via Platform::Add/AddWithDefaultBindings().");
-    return DBL_MAX;
+    if (_obj != NULL && _obj PTR_DEREF HasDataSource()) {
+      return iWPROnIndicator((Indi_WPR *)_obj, _obj PTR_DEREF GetCandle(), _period, _shift);
+    }
+    RUNTIME_ERROR("WPR requires a candle data source.");
+    return EMPTY_VALUE;
 #endif
+  }
+
+  /** Calculates WPR on the candle source and caches each computed value. */
+  static double iWPROnIndicator(Indi_WPR *_target, IndicatorData *_source, unsigned int _period, int _shift = 0) {
+    if (_source == NULL || _period == 0) return EMPTY_VALUE;
+
+    ValueStorage<double> *_high = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_HIGH);
+    ValueStorage<double> *_low = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_LOW);
+    ValueStorage<double> *_close = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_CLOSE);
+    if (_high == NULL || _low == NULL || _close == NULL) return EMPTY_VALUE;
+
+    IndiBufferCache<double> *_cache = _target PTR_DEREF GetCache();
+    const int _rates_total = _close PTR_DEREF Size();
+    _cache PTR_DEREF SetPriceBuffer(PTR_TO_REF(_close), _rates_total);
+    if (!_cache PTR_DEREF HasBuffers()) {
+      _cache PTR_DEREF AddBuffer<NativeValueStorage<double>>();
+    }
+
+    ValueStorage<double> &_wpr = _cache PTR_DEREF GetBuffer<double>(0);
+    const int _begin = (int)_period - 1;
+    const int _prev_calculated = _cache PTR_DEREF GetPrevCalculated();
+    const int _start = _prev_calculated == 0 || _prev_calculated - 1 < _begin ? _begin : _prev_calculated - 1;
+
+    for (int i = _start; i < _rates_total && !IsStopped(); ++i) {
+      double _highest = -DBL_MAX;
+      double _lowest = DBL_MAX;
+      for (int j = i - (int)_period + 1; j <= i; ++j) {
+        _highest = fmax(_highest, PTR_TO_REF(_high)[j].Get());
+        _lowest = fmin(_lowest, PTR_TO_REF(_low)[j].Get());
+      }
+
+      const double _range = _highest - _lowest;
+      _wpr[i] = _range == 0.0 ? 0.0 : -100.0 * (_highest - PTR_TO_REF(_close)[i].Get()) / _range;
+    }
+
+    _cache PTR_DEREF SetPrevCalculated(_rates_total);
+    if (_shift < 0 || _shift >= _rates_total) return EMPTY_VALUE;
+    return _cache PTR_DEREF GetTailValue<double>(0, _shift);
   }
 
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
         _value = Indi_WPR::iWPR(GetSymbol(), GetTf(), GetPeriod(), ToRelShift(_abs_shift), THIS_PTR);
+        break;
+      case IDATA_INDICATOR:
+        _value = Indi_WPR::iWPROnIndicator(THIS_PTR, GetCandle(), GetPeriod(), ToRelShift(_abs_shift));
         break;
       case IDATA_ICUSTOM:
         _value = iCustom(istate.handle, GetSymbol(), GetTf(), iparams.GetCustomIndicatorName(), /*[*/ GetPeriod() /*]*/,
@@ -162,10 +214,38 @@ class Indi_WPR : public Indicator<IndiWPRParams> {
   }
 };
 
+#undef INDI_WPR_DEFAULT_SOURCE_MODE
+
 #ifndef __MQL4__
 // Defines global functions (for MQL4 backward compability).
 double iWPR(string _symbol, int _tf, int _period, int _shift) {
   ResetLastError();
   return Indi_WPR::iWPR(_symbol, (ENUM_TIMEFRAMES)_tf, _period, _shift);
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(Indi_WPR_Params) {
+  emscripten::value_object<IndiWPRParams>("indicators.WPRParams")
+      .field("period", &IndiWPRParams::period)
+      .field("shift", &IndiWPRParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_WPRBase) {
+  emscripten::class_<Indicator<IndiWPRParams>, emscripten::base<IndicatorData>>("Indi_WPRBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_WPR) {
+  emscripten::class_<Indi_WPR, emscripten::base<Indicator<IndiWPRParams>>>("indicators.WPR")
+      .smart_ptr<Ref<Indi_WPR>>("Ref<Indi_WPR>")
+      .constructor(&make_ref<Indi_WPR, IndiWPRParams &>)
+      .constructor(&make_ref<Indi_WPR, IndiWPRParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_WPR, IndiWPRParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_WPR, IndiWPRParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
 #endif

@@ -1284,7 +1284,21 @@ BufferStruct<IndicatorDataEntry> idata;
   /**
    * Get data type of indicator.
    */
-  virtual ENUM_DATATYPE GetDataType() { return (ENUM_DATATYPE)-1; }
+  virtual ENUM_DATATYPE GetDataType() {
+    return Get<ENUM_DATATYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_DTYPE));
+  }
+
+  /**
+   * Gets the value range of the indicator.
+   */
+  virtual ENUM_IDATA_VALUE_RANGE GetValueRange() {
+    return Get<ENUM_IDATA_VALUE_RANGE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDVRANGE));
+  }
+
+  /**
+   * Gets the indicator color.
+   */
+  virtual color GetColor() { return idparams.GetIndicatorColor(); }
 
   /**
    * Gets close price for a given, optional shift.
@@ -1590,6 +1604,16 @@ BufferStruct<IndicatorDataEntry> idata;
     }
 
     return GetTick() PTR_DEREF GetSymbol();
+  }
+
+  virtual int GetSymbolDigits() {
+    if (GetTick() == THIS_PTR) {
+      Alert(GetFullName(), " tick indicator must override ", __FUNCTION__, "()!");
+      DebugBreak();
+      return -1;
+    }
+
+    return GetTick() PTR_DEREF GetSymbolDigits();
   }
 
   /**

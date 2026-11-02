@@ -420,7 +420,7 @@ struct IndicatorDataParams {
   unsigned int max_modes;           // Max supported indicator modes (values per entry).
   unsigned int max_buffers;         // Max buffers to store.
   ENUM_IDATA_SOURCE_TYPE idstype;   // Indicator's data source type (e.g. IDATA_BUILTIN, IDATA_ICUSTOM).
-  ENUM_IDATA_VALUE_RANGE idvrange;  // Indicator's range value data type.
+  ENUM_IDATA_VALUE_RANGE idvrange;  // Indicator's range value data type. E.g., binary, price, range.
   color indi_color;                 // Indicator color.
   // @todo: Move to protected.
   bool is_plot;  // Plot active.

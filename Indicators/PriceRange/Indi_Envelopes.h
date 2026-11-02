@@ -42,12 +42,12 @@ struct IndiEnvelopesParams : IndicatorParams {
   // Struct constructors.
   IndiEnvelopesParams(int _ma_period = 13, int _ma_shift = 0, ENUM_MA_METHOD _ma_method = MODE_SMA,
                       ENUM_APPLIED_PRICE _ap = PRICE_OPEN, double _deviation = 2, int _shift = 0)
-      : ma_period(_ma_period),
+      : IndicatorParams(INDI_ENVELOPES),
+        ma_period(_ma_period),
         ma_shift(_ma_shift),
         ma_method(_ma_method),
         applied_price(_ap),
-        deviation(_deviation),
-        IndicatorParams(INDI_ENVELOPES) {
+        deviation(_deviation) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\Envelopes");
   };
@@ -205,7 +205,7 @@ class Indi_Envelopes : public Indicator<IndiEnvelopesParams> {
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
@@ -249,7 +249,7 @@ class Indi_Envelopes : public Indicator<IndiEnvelopesParams> {
   /**
    * Checks if indicator entry values are valid.
    */
-  virtual bool IsValidEntry(IndicatorDataEntry &_entry) {
+  virtual bool IsValidEntry(IndicatorDataEntry &_entry) override {
     return Indicator<IndiEnvelopesParams>::IsValidEntry(_entry) && _entry.IsGt<double>(0);
   }
 
@@ -337,4 +337,34 @@ double iEnvelopesOnArray(ARRAY_REF(double, _arr), int _total, int _ma_period, in
   return Indi_Envelopes::iEnvelopesOnArray(_arr, _total, _ma_period, (ENUM_MA_METHOD)_ma_method, _ma_shift, _deviation,
                                            _mode, _shift);
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(Indi_Envelopes_Params) {
+  emscripten::value_object<IndiEnvelopesParams>("indicators.EnvelopesParams")
+      .field("ma_period", &IndiEnvelopesParams::ma_period)
+      .field("ma_shift", &IndiEnvelopesParams::ma_shift)
+      .field("ma_method", &IndiEnvelopesParams::ma_method)
+      .field("applied_price", &IndiEnvelopesParams::applied_price)
+      .field("deviation", &IndiEnvelopesParams::deviation)
+      .field("shift", &IndiEnvelopesParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_EnvelopesBase) {
+  emscripten::class_<Indicator<IndiEnvelopesParams>, emscripten::base<IndicatorData>>("Indi_EnvelopesBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Envelopes) {
+  emscripten::class_<Indi_Envelopes, emscripten::base<Indicator<IndiEnvelopesParams>>>("indicators.Envelopes")
+      .smart_ptr<Ref<Indi_Envelopes>>("Ref<Indi_Envelopes>")
+      .constructor(&make_ref<Indi_Envelopes, IndiEnvelopesParams &>)
+      .constructor(&make_ref<Indi_Envelopes, IndiEnvelopesParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_Envelopes, IndiEnvelopesParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_Envelopes, IndiEnvelopesParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
 #endif

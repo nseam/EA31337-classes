@@ -47,11 +47,11 @@ struct IndiStdDevParams : IndicatorParams {
   // Struct constructors.
   IndiStdDevParams(int _ma_period = 13, int _ma_shift = 10, ENUM_MA_METHOD _ma_method = MODE_SMA,
                    ENUM_APPLIED_PRICE _ap = PRICE_OPEN, int _shift = 0)
-      : ma_period(_ma_period),
+      : IndicatorParams(INDI_STDDEV),
+        ma_period(_ma_period),
         ma_shift(_ma_shift),
         ma_method(_ma_method),
-        applied_price(_ap),
-        IndicatorParams(INDI_STDDEV) {
+        applied_price(_ap) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\StdDev");
   };
@@ -228,7 +228,7 @@ class Indi_StdDev : public Indicator<IndiStdDevParams> {
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
@@ -246,6 +246,9 @@ class Indi_StdDev : public Indicator<IndiStdDevParams> {
       case IDATA_INDICATOR:
         _value = Indi_StdDev::iStdDevOnIndicator(THIS_PTR, GetDataSource(), GetSymbol(), GetTf(), GetMAPeriod(),
                                                  GetMAShift(), GetAppliedPrice(), ToRelShift(_abs_shift), THIS_PTR);
+        break;
+      default:
+        SetUserError(ERR_INVALID_PARAMETER);
         break;
     }
     return _value;

@@ -91,6 +91,13 @@ class Tester {
   Tester() {}
 
   /**
+   * Resets the platform and all indicators, so we can run tests from a clean state.
+   */
+  static void Reset() {
+    Platform::Reset();
+  }
+
+  /**
    * Adds indicator which must previously set its candle/tick sources in order
    * to work.
    */
@@ -272,7 +279,7 @@ class Tester {
         // Now it's time to retrieve values for the given time range and aggregate them into given time-step.
         REF_TO(TesterValuesColumns) columns = values.timestep_based[_iter.Index()];
         
-        columns.indicator_info = TesterIndicatorInfo(_indi PTR_DEREF GetName(), 0, _indi PTR_DEREF GetModeCount(), _indi PTR_DEREF GetSymbol(), _tf);
+        columns.indicator_info = TesterIndicatorInfo(_indi PTR_DEREF GetName(), 0, _indi PTR_DEREF GetModeCount(), _indi PTR_DEREF GetSymbol(), _tf, _indi PTR_DEREF GetDataType(), _indi PTR_DEREF GetValueRange(), _indi PTR_DEREF GetColor(), SymbolInfoStatic::GetDigits(_indi PTR_DEREF GetSymbol()));
 
         GetValuesForTimeFrameBasedIndicatorUngrouped(_indi, /*_time_from_ms, _time_to_ms, _time_step_secs*/ columns);
 
@@ -535,7 +542,8 @@ static emscripten::val IndicatorDataEntryToVal(IndicatorDataEntry& entry) {
 }
 
 // Converts a TesterValuesColumns to a plain JS object:
-// { indicator_info: { name, index, num_values, symbol, tf }, values: IndicatorDataEntry[] }
+// { indicator_info: { name, index, num_values, symbol, tf, data_type, value_range, color },
+//   values: IndicatorDataEntry[] }
 static emscripten::val TesterValuesColumnsToVal(TesterValuesColumns& cols) {
   emscripten::val result = emscripten::val::object();
   emscripten::val info = emscripten::val::object();
@@ -543,7 +551,11 @@ static emscripten::val TesterValuesColumnsToVal(TesterValuesColumns& cols) {
   info.set("index",      emscripten::val(cols.indicator_info.index));
   info.set("num_values", emscripten::val(cols.indicator_info.num_values));
   info.set("symbol",     emscripten::val(cols.indicator_info.symbol));
+  info.set("symbol_digits", emscripten::val(cols.indicator_info.symbol_digits));
   info.set("tf",         emscripten::val((int)cols.indicator_info.tf));
+  info.set("data_type", emscripten::val((int)cols.indicator_info.data_type));
+  info.set("value_range", emscripten::val((int)cols.indicator_info.value_range));
+  info.set("color", emscripten::val((int)cols.indicator_info.indi_color));
   result.set("indicator_info", info);
   emscripten::val values_arr = emscripten::val::array();
   int n = ArraySize(cols.values);
@@ -558,6 +570,7 @@ EMSCRIPTEN_BINDINGS(Tester) {
   emscripten::class_<Tester>("Tester")
       .constructor<>()
       .class_function("Init", &Tester::Init)
+      .class_function("Reset", &Tester::Reset)
       .class_function("Add", &Tester::Add, emscripten::allow_raw_pointer<emscripten::arg<0>>())
       .class_function("AddPlatformWise", &Tester::AddPlatformWise)
       .class_function("RunAllTicks", &Tester::RunAllTicks)
@@ -603,7 +616,7 @@ EMSCRIPTEN_BINDINGS(Tester) {
                         ENUM_TIMEFRAMES _tf = _indi PTR_DEREF GetTf();
                         TesterValuesColumns cols;
                         cols.indicator_info = TesterIndicatorInfo(_indi PTR_DEREF GetName(), 0, 0,
-                                                                  _indi PTR_DEREF GetSymbol(), _tf);
+                                                                  _indi PTR_DEREF GetSymbol(), _tf, _indi PTR_DEREF GetDataType(), _indi PTR_DEREF GetValueRange(), _indi PTR_DEREF GetColor(), SymbolInfoStatic::GetDigits(_indi PTR_DEREF GetSymbol()));
                         Tester::GetValuesForTimeFrameBasedIndicatorUngrouped(_indi, cols);
                         return TesterValuesColumnsToVal(cols);
                       }),
@@ -622,7 +635,7 @@ EMSCRIPTEN_BINDINGS(Tester) {
                           ENUM_TIMEFRAMES _tf = _indi PTR_DEREF GetTf();
                           TesterValuesColumns cols;
                           cols.indicator_info = TesterIndicatorInfo(_indi PTR_DEREF GetName(), 0, 0,
-                                                                    _indi PTR_DEREF GetSymbol(), _tf);
+                                                                    _indi PTR_DEREF GetSymbol(), _tf, _indi PTR_DEREF GetDataType(), _indi PTR_DEREF GetValueRange(), _indi PTR_DEREF GetColor(), SymbolInfoStatic::GetDigits(_indi PTR_DEREF GetSymbol()));
                           Tester::GetValuesForTimeFrameBasedIndicatorUngrouped(_indi, cols);
                           result.call<void>("push", TesterValuesColumnsToVal(cols));
                         }
@@ -651,6 +664,7 @@ EMSCRIPTEN_BINDINGS(TesterIndicatorInfo) {
       .field("index", &TesterIndicatorInfo::index)
       .field("num_values", &TesterIndicatorInfo::num_values)
       .field("symbol", &TesterIndicatorInfo::symbol)
+      .field("symbol_digits", &TesterIndicatorInfo::symbol_digits)
       .field("tf", &TesterIndicatorInfo::tf);
 }
 

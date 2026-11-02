@@ -119,7 +119,7 @@ class Indi_Math : public Indicator<IndiMathParams> {
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_INDICATOR:
@@ -259,5 +259,5 @@ class Indi_Math : public Indicator<IndiMathParams> {
   /**
    * Whether we can and have to select mode when specifying data source.
    */
-  virtual bool IsDataSourceModeSelectable() { return false; }
+  virtual bool IsDataSourceModeSelectable() override { return false; }
 };

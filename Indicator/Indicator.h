@@ -712,22 +712,22 @@ class Indicator : public IndicatorData {
           case TYPE_BOOL:
           case TYPE_CHAR:
           case TYPE_INT:
-            _entry.values[_mode] = GetValue<int>(_mode, _rel_shift);
+            _entry.values[_mode] = GetValue<int>(_mode, _rel_shift + iparams.shift);
             break;
           case TYPE_LONG:
-            _entry.values[_mode] = GetValue<int64>(_mode, _rel_shift);
+            _entry.values[_mode] = GetValue<int64>(_mode, _rel_shift + iparams.shift);
             break;
           case TYPE_UINT:
-            _entry.values[_mode] = GetValue<unsigned int>(_mode, _rel_shift);
+            _entry.values[_mode] = GetValue<unsigned int>(_mode, _rel_shift + iparams.shift);
             break;
           case TYPE_ULONG:
-            _entry.values[_mode] = GetValue<uint64>(_mode, _rel_shift);
+            _entry.values[_mode] = GetValue<uint64>(_mode, _rel_shift + iparams.shift);
             break;
           case TYPE_DOUBLE:
-            _entry.values[_mode] = GetValue<double>(_mode, _rel_shift);
+            _entry.values[_mode] = GetValue<double>(_mode, _rel_shift + iparams.shift);
             break;
           case TYPE_FLOAT:
-            _entry.values[_mode] = GetValue<float>(_mode, _rel_shift);
+            _entry.values[_mode] = GetValue<float>(_mode, _rel_shift + iparams.shift);
             break;
           case TYPE_STRING:
           case TYPE_UCHAR:
@@ -736,12 +736,13 @@ class Indicator : public IndicatorData {
             break;
         }
 
-        if (_LastError != ERR_SUCCESS) {
-          if (_LastError != 4806) {
-            // Error occured and it's not "4806 Requested data not found".
+          if (_LastError != ERR_SUCCESS) {
+          if (_LastError != 4806 && _LastError != ERR_USER_ERROR_FIRST + ERR_INVALID_PARAMETER) {
+            // Abort only for errors other than missing data or an unavailable parameter value.
             datetime _bar_dt = (datetime)_bar_time;
-            Print("Error: Code ", _LastError, " while trying to retrieve entry at shift ", _rel_shift, " (absolute ",
-                  ToAbsShift(_rel_shift), "), mode ", _mode, ", time ", _bar_dt);
+            Print("Error: ", C_STR(GetFullName()), ": Code ", _LastError,
+              " while trying to retrieve entry at shift ", _rel_shift, " (absolute ", ToAbsShift(_rel_shift),
+              "), mode ", _mode, ", time ", _bar_dt);
             DebugBreak();
           }
         }

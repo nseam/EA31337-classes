@@ -255,6 +255,16 @@ class Platform : public Taskable<DataParamEntry> {
   static DictStruct<int64, Ref<IndicatorData>> *GetIndicators() { return &indis; }
 
   /**
+   * Resets the platform and all indicators, so we can run tests from a clean state.
+   */
+  static void Reset() {
+    indis.Clear();
+    indis_dflt.Clear();
+    global_tick_index = 0;
+    last_tick_result = false;
+  }
+
+  /**
    * Adds indicator to be processed by platform.
    */
   static void Add(IndicatorData *_indi) {

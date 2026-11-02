@@ -68,15 +68,15 @@ struct IndiAlligatorParams : IndicatorParams {
   // Struct constructors.
   IndiAlligatorParams(int _jp = 13, int _js = 8, int _tp = 8, int _ts = 5, int _lp = 5, int _ls = 3,
                       ENUM_MA_METHOD _mm = MODE_SMMA, ENUM_APPLIED_PRICE _ap = PRICE_MEDIAN, int _shift = 0)
-      : jaw_period(_jp),
+      : IndicatorParams(INDI_ALLIGATOR),
+        jaw_period(_jp),
         jaw_shift(_js),
         teeth_period(_tp),
         teeth_shift(_ts),
         lips_period(_lp),
         lips_shift(_ls),
         ma_method(_mm),
-        applied_price(_ap),
-        IndicatorParams(INDI_ALLIGATOR) {
+        applied_price(_ap) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\Alligator");
   };
@@ -86,17 +86,24 @@ struct IndiAlligatorParams : IndicatorParams {
 /**
  * Implements the Alligator indicator.
  */
+#ifdef __MQL__
+#define INDI_ALLIGATOR_DEFAULT_SOURCE_MODE IDATA_BUILTIN
+#else
+#define INDI_ALLIGATOR_DEFAULT_SOURCE_MODE IDATA_INDICATOR
+#endif
+
 class Indi_Alligator : public Indicator<IndiAlligatorParams> {
  public:
   /**
    * Class constructor.
    */
-  Indi_Alligator(IndiAlligatorParams &_p, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN,
+  Indi_Alligator(IndiAlligatorParams &_p, ENUM_IDATA_SOURCE_TYPE _idstype = INDI_ALLIGATOR_DEFAULT_SOURCE_MODE,
                  IndicatorData *_indi_src = NULL, int _indi_src_mode = 0)
       : Indicator(
             _p, IndicatorDataParams::GetInstance(FINAL_ALLIGATOR_LINE_ENTRY, TYPE_DOUBLE, _idstype, IDATA_RANGE_PRICE),
             _indi_src, _indi_src_mode) {}
-  Indi_Alligator(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, IndicatorData *_indi_src = NULL,
+  Indi_Alligator(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = INDI_ALLIGATOR_DEFAULT_SOURCE_MODE,
+                 IndicatorData *_indi_src = NULL,
                  int _indi_src_mode = 0)
       : Indicator(
             IndiAlligatorParams(),
@@ -105,12 +112,12 @@ class Indi_Alligator : public Indicator<IndiAlligatorParams> {
   /**
    * Returns possible data source types. It is a bit mask of ENUM_INDI_SUITABLE_DS_TYPE.
    */
-  unsigned int GetSuitableDataSourceTypes() override { return INDI_SUITABLE_DS_TYPE_EXPECT_NONE; }
+  unsigned int GetSuitableDataSourceTypes() override { return INDI_SUITABLE_DS_TYPE_AP; }
 
   /**
    * Returns possible data source modes. It is a bit mask of ENUM_IDATA_SOURCE_TYPE.
    */
-  unsigned int GetPossibleDataModes() override { return IDATA_BUILTIN | IDATA_ICUSTOM; }
+  unsigned int GetPossibleDataModes() override { return IDATA_BUILTIN | IDATA_ICUSTOM | IDATA_INDICATOR; }
 
   /**
    * Returns the indicator value.
@@ -144,18 +151,55 @@ class Indi_Alligator : public Indicator<IndiAlligatorParams> {
                                       _mode, _shift);
 #endif
 #else  // Non-MQL.
-    // @todo: Use Platform class.
-    RUNTIME_ERROR(
-        "Not implemented. Please use an On-Indicator mode and attach "
-        "indicator via Platform::Add/AddWithDefaultBindings().");
-    return DBL_MAX;
+    if (_obj != NULL && _obj PTR_DEREF HasDataSource()) {
+      return iAlligatorOnIndicator((Indi_Alligator *)_obj, _obj PTR_DEREF GetDataSource(), _jaw_period, _jaw_shift,
+                                  _teeth_period, _teeth_shift, _lips_period, _lips_shift, _ma_method,
+                                  _applied_price, _mode, _shift);
+    }
+    RUNTIME_ERROR("Alligator requires an applied-price data source.");
+    return EMPTY_VALUE;
 #endif
+  }
+
+  /** Calculates one Alligator line on its applied-price source using an independent MA cache. */
+  static double iAlligatorOnIndicator(Indi_Alligator *_target, IndicatorData *_source, int _jaw_period,
+                                      int _jaw_shift, int _teeth_period, int _teeth_shift, int _lips_period,
+                                      int _lips_shift, ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _applied_price,
+                                      ENUM_ALLIGATOR_LINE _mode, int _shift) {
+    int _period;
+    int _line_shift;
+    switch (_mode) {
+      case LINE_JAW:
+        _period = _jaw_period;
+        _line_shift = _jaw_shift;
+        break;
+      case LINE_TEETH:
+        _period = _teeth_period;
+        _line_shift = _teeth_shift;
+        break;
+      case LINE_LIPS:
+        _period = _lips_period;
+        _line_shift = _lips_shift;
+        break;
+      default:
+        return EMPTY_VALUE;
+    }
+    if (_period <= 0 || _line_shift < 0 || _shift < 0) return EMPTY_VALUE;
+
+    ValueStorage<double> *_price = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificAppliedPriceValueStorage(_applied_price, _target);
+    if (_price == NULL) return EMPTY_VALUE;
+    const int _total = _price PTR_DEREF Size();
+    if (_shift + _line_shift + _period > _total) return EMPTY_VALUE;
+
+    IndiBufferCache<double> *_cache = _target PTR_DEREF GetCache() PTR_DEREF GetSubCache((int)_mode);
+    return Indi_MA::iMAOnArray(PTR_TO_REF(_price), 0, _period, _line_shift, _ma_method, _shift, _cache);
   }
 
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
 #ifdef __MQL4__
     if (_mode == 0) {
@@ -169,6 +213,12 @@ class Indi_Alligator : public Indicator<IndiAlligatorParams> {
             Indi_Alligator::iAlligator(GetSymbol(), GetTf(), GetJawPeriod(), GetJawShift(), GetTeethPeriod(),
                                        GetTeethShift(), GetLipsPeriod(), GetLipsShift(), GetMAMethod(),
                                        GetAppliedPrice(), (ENUM_ALLIGATOR_LINE)_mode, ToRelShift(_abs_shift), THIS_PTR);
+        break;
+      case IDATA_INDICATOR:
+        _value = Indi_Alligator::iAlligatorOnIndicator(
+            THIS_PTR, GetDataSource(), GetJawPeriod(), GetJawShift(), GetTeethPeriod(), GetTeethShift(),
+            GetLipsPeriod(), GetLipsShift(), GetMAMethod(), GetAppliedPrice(), (ENUM_ALLIGATOR_LINE)_mode,
+            ToRelShift(_abs_shift));
         break;
       case IDATA_ICUSTOM:
         _value = iCustom(istate.handle, GetSymbol(), GetTf(), iparams.GetCustomIndicatorName(), /*[*/
@@ -187,7 +237,7 @@ class Indi_Alligator : public Indicator<IndiAlligatorParams> {
   /**
    * Checks if indicator entry values are valid.
    */
-  virtual bool IsValidEntry(IndicatorDataEntry &_entry) {
+  virtual bool IsValidEntry(IndicatorDataEntry &_entry) override {
     return !_entry.HasValue<double>(NULL) && !_entry.HasValue<double>(EMPTY_VALUE) && _entry.IsGt<double>(0);
   }
 
@@ -300,6 +350,8 @@ class Indi_Alligator : public Indicator<IndiAlligatorParams> {
   }
 };
 
+#undef INDI_ALLIGATOR_DEFAULT_SOURCE_MODE
+
 #ifndef __MQL4__
 // Defines global functions (for MQL4 backward compability).
 double iAlligator(string _symbol, int _tf, int _jp, int _js, int _tp, int _ts, int _lp, int _ls, int _ma_method,
@@ -309,4 +361,37 @@ double iAlligator(string _symbol, int _tf, int _jp, int _js, int _tp, int _ts, i
                                     (ENUM_MA_METHOD)_ma_method, (ENUM_APPLIED_PRICE)_ap, (ENUM_ALLIGATOR_LINE)_mode,
                                     _shift);
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(Indi_Alligator_Params) {
+  emscripten::value_object<IndiAlligatorParams>("indicators.AlligatorParams")
+      .field("jaw_period", &IndiAlligatorParams::jaw_period)
+      .field("jaw_shift", &IndiAlligatorParams::jaw_shift)
+      .field("teeth_period", &IndiAlligatorParams::teeth_period)
+      .field("teeth_shift", &IndiAlligatorParams::teeth_shift)
+      .field("lips_period", &IndiAlligatorParams::lips_period)
+      .field("lips_shift", &IndiAlligatorParams::lips_shift)
+      .field("ma_method", &IndiAlligatorParams::ma_method)
+      .field("applied_price", &IndiAlligatorParams::applied_price)
+      .field("shift", &IndiAlligatorParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_AlligatorBase) {
+  emscripten::class_<Indicator<IndiAlligatorParams>, emscripten::base<IndicatorData>>("Indi_AlligatorBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Alligator) {
+  emscripten::class_<Indi_Alligator, emscripten::base<Indicator<IndiAlligatorParams>>>("indicators.Alligator")
+      .smart_ptr<Ref<Indi_Alligator>>("Ref<Indi_Alligator>")
+      .constructor(&make_ref<Indi_Alligator, IndiAlligatorParams &>)
+      .constructor(&make_ref<Indi_Alligator, IndiAlligatorParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_Alligator, IndiAlligatorParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_Alligator, IndiAlligatorParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
 #endif

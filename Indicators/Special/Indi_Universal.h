@@ -85,11 +85,11 @@ class Indi_Universal : public Indicator<IndiUniversalParams> {
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     IndicatorDataEntryValue _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_INDICATOR:
-        if (!indi_src.IsSet()) {
+        if (!HasDataSource()) {
           logger REF_DEREF Error(
               "In order use custom indicator as a source, you need to select one using SetIndicatorData() method, "
               "which is a part of IndiUniversalParams structure.",
@@ -101,7 +101,7 @@ class Indi_Universal : public Indicator<IndiUniversalParams> {
           SetUserError(ERR_INVALID_PARAMETER);
           return _value;
         }
-        _value = indi_src REF_DEREF GetEntryValue(_mode, _abs_shift);
+        _value = GetDataSource() PTR_DEREF GetValue<double>(iparams.mode_1, ToRelShift(_abs_shift) + iparams.shift_1);
         break;
       default:
         SetUserError(ERR_INVALID_PARAMETER);
@@ -115,5 +115,32 @@ class Indi_Universal : public Indicator<IndiUniversalParams> {
   /**
    * Whether we can and have to select mode when specifying data source.
    */
-  virtual bool IsDataSourceModeSelectable() { return false; }
+  virtual bool IsDataSourceModeSelectable() override { return false; }
 };
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(Indi_Universal_Params) {
+  emscripten::value_object<IndiUniversalParams>("indicators.UniversalParams")
+      .field("mode_1", &IndiUniversalParams::mode_1)
+      .field("shift_1", &IndiUniversalParams::shift_1)
+      .field("shift", &IndiUniversalParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_UniversalBase) {
+  emscripten::class_<Indicator<IndiUniversalParams>, emscripten::base<IndicatorData>>("Indi_UniversalBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Universal) {
+  emscripten::class_<Indi_Universal, emscripten::base<Indicator<IndiUniversalParams>>>("indicators.Universal")
+      .smart_ptr<Ref<Indi_Universal>>("Ref<Indi_Universal>")
+      .constructor(&make_ref<Indi_Universal, IndiUniversalParams &>)
+      .constructor(&make_ref<Indi_Universal, IndiUniversalParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_Universal, IndiUniversalParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_Universal, IndiUniversalParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
+#endif

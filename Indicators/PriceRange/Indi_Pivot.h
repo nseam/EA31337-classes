@@ -109,7 +109,7 @@ class Indi_Pivot : public Indicator<IndiPivotParams> {
     IndicatorDataEntry _entry = idata.GetByKey(_bar_time);
     if (_bar_time > 0 && !_entry.IsValid() && !_entry.CheckFlag(INDI_ENTRY_FLAG_INSUFFICIENT_DATA)) {
       ResetLastError();
-      BarOHLC _ohlc = GetOHLC(_rel_shift);
+      BarOHLC _ohlc = GetOHLC(_rel_shift + iparams.shift);
       _entry.timestamp = GetCandle() PTR_DEREF GetBarTime(_rel_shift);
       if (_ohlc.IsValid()) {
         _entry.Resize(Get<int>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_MAX_MODES)));
@@ -150,7 +150,7 @@ class Indi_Pivot : public Indicator<IndiPivotParams> {
   /**
    * Returns OHLC struct.
    */
-  BarOHLC GetOHLC(int _shift = 0) {
+  BarOHLC GetOHLC(int _shift = 0) override {
     BarOHLC _ohlc;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
@@ -162,10 +162,10 @@ class Indi_Pivot : public Indicator<IndiPivotParams> {
         // must have at least 4 buffers and define OHLC in the first 4 buffers.
         // Indi_Price is an example of such indicator.
         if (HasDataSource()) {
-          _ohlc.open = GetDataSource() PTR_DEREF GetValue<float>(PRICE_OPEN, _shift);
-          _ohlc.high = GetDataSource() PTR_DEREF GetValue<float>(PRICE_HIGH, _shift);
-          _ohlc.low = GetDataSource() PTR_DEREF GetValue<float>(PRICE_LOW, _shift);
-          _ohlc.close = GetDataSource() PTR_DEREF GetValue<float>(PRICE_CLOSE, _shift);
+          _ohlc.open = GetDataSource() PTR_DEREF GetPrice(PRICE_OPEN, _shift);
+          _ohlc.high = GetDataSource() PTR_DEREF GetPrice(PRICE_HIGH, _shift);
+          _ohlc.low = GetDataSource() PTR_DEREF GetPrice(PRICE_LOW, _shift);
+          _ohlc.close = GetDataSource() PTR_DEREF GetPrice(PRICE_CLOSE, _shift);
         }
         break;
       default:
@@ -193,5 +193,39 @@ class Indi_Pivot : public Indicator<IndiPivotParams> {
   /**
    * Whether we can and have to select mode when specifying data source.
    */
-  virtual bool IsDataSourceModeSelectable() { return false; }
+  virtual bool IsDataSourceModeSelectable() override { return false; }
 };
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(ENUM_PP_TYPE) {
+  emscripten::enum_<ENUM_PP_TYPE>("pivot_methods")
+      .value("CAMARILLA", PP_CAMARILLA)
+      .value("CLASSIC", PP_CLASSIC)
+      .value("FIBONACCI", PP_FIBONACCI)
+      .value("WOODIE", PP_WOODIE);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Pivot_Params) {
+  emscripten::value_object<IndiPivotParams>("indicators.PivotParams")
+      .field("method", &IndiPivotParams::method)
+      .field("shift", &IndiPivotParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_PivotBase) {
+  emscripten::class_<Indicator<IndiPivotParams>, emscripten::base<IndicatorData>>("Indi_PivotBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Pivot) {
+  emscripten::class_<Indi_Pivot, emscripten::base<Indicator<IndiPivotParams>>>("indicators.Pivot")
+      .smart_ptr<Ref<Indi_Pivot>>("Ref<Indi_Pivot>")
+      .constructor(&make_ref<Indi_Pivot, IndiPivotParams &>)
+      .constructor(&make_ref<Indi_Pivot, IndiPivotParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_Pivot, IndiPivotParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_Pivot, IndiPivotParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
+#endif

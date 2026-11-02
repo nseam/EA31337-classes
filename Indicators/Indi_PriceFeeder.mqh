@@ -96,7 +96,7 @@ class Indi_PriceFeeder : public Indicator<IndiPriceFeederParams> {
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = 0, int _abs_shift = 0) override {
     int data_size = ArraySize(iparams.price_data);
 
     if (_abs_shift >= data_size || _abs_shift < 0) return DBL_MIN;

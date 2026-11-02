@@ -53,12 +53,12 @@ struct IndiStochParams : IndicatorParams {
   // Struct constructors.
   IndiStochParams(int _kperiod = 5, int _dperiod = 3, int _slowing = 3, ENUM_MA_METHOD _ma_method = MODE_SMA,
                   ENUM_STO_PRICE _pf = STO_LOWHIGH, int _shift = 0)
-      : kperiod(_kperiod),
+      : IndicatorParams(INDI_STOCHASTIC),
+        kperiod(_kperiod),
         dperiod(_dperiod),
         slowing(_slowing),
         ma_method(_ma_method),
-        price_field(_pf),
-        IndicatorParams(INDI_STOCHASTIC) {
+        price_field(_pf) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\Stochastic");
   };
@@ -68,18 +68,26 @@ struct IndiStochParams : IndicatorParams {
 /**
  * Implements the Stochastic Oscillator.
  */
+#ifdef __MQL__
+#define INDI_STOCHASTIC_DEFAULT_SOURCE_MODE IDATA_BUILTIN
+#else
+#define INDI_STOCHASTIC_DEFAULT_SOURCE_MODE IDATA_INDICATOR
+#endif
+
 class Indi_Stochastic : public Indicator<IndiStochParams> {
  public:
   /**
    * Class constructor.
    */
-  Indi_Stochastic(IndiStochParams &_p, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, IndicatorData *_indi_src = NULL,
+  Indi_Stochastic(IndiStochParams &_p, ENUM_IDATA_SOURCE_TYPE _idstype = INDI_STOCHASTIC_DEFAULT_SOURCE_MODE,
+                  IndicatorData *_indi_src = NULL,
                   int _indi_src_mode = 0)
       : Indicator(_p,
                   IndicatorDataParams::GetInstance(FINAL_SIGNAL_LINE_ENTRY, TYPE_DOUBLE, _idstype, IDATA_RANGE_RANGE,
                                                    _indi_src_mode),
                   _indi_src) {}
-  Indi_Stochastic(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, IndicatorData *_indi_src = NULL,
+  Indi_Stochastic(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = INDI_STOCHASTIC_DEFAULT_SOURCE_MODE,
+                  IndicatorData *_indi_src = NULL,
                   int _indi_src_mode = 0)
       : Indicator(IndiStochParams(),
                   IndicatorDataParams::GetInstance(FINAL_SIGNAL_LINE_ENTRY, TYPE_DOUBLE, _idstype, IDATA_RANGE_RANGE,
@@ -88,12 +96,12 @@ class Indi_Stochastic : public Indicator<IndiStochParams> {
   /**
    * Returns possible data source types. It is a bit mask of ENUM_INDI_SUITABLE_DS_TYPE.
    */
-  unsigned int GetSuitableDataSourceTypes() override { return INDI_SUITABLE_DS_TYPE_EXPECT_NONE; }
+  unsigned int GetSuitableDataSourceTypes() override { return INDI_SUITABLE_DS_TYPE_CANDLE; }
 
   /**
    * Returns possible data source modes. It is a bit mask of ENUM_IDATA_SOURCE_TYPE.
    */
-  unsigned int GetPossibleDataModes() override { return IDATA_BUILTIN | IDATA_ICUSTOM; }
+  unsigned int GetPossibleDataModes() override { return IDATA_BUILTIN | IDATA_ICUSTOM | IDATA_INDICATOR; }
 
   /**
    * Calculates the Stochastic Oscillator and returns its value.
@@ -117,23 +125,95 @@ class Indi_Stochastic : public Indicator<IndiStochParams> {
         ::iStochastic(_symbol, _tf, _kperiod, _dperiod, _slowing, _ma_method, _price_field), _mode, _shift);
 #endif
 #else  // Non-MQL.
-    // @todo: Use Platform class.
-    RUNTIME_ERROR(
-        "Not implemented. Please use an On-Indicator mode and attach "
-        "indicator via Platform::Add/AddWithDefaultBindings().");
-    return DBL_MAX;
+    if (_obj != NULL && _obj PTR_DEREF HasDataSource()) {
+      return iStochasticOnIndicator((Indi_Stochastic *)_obj, _obj PTR_DEREF GetCandle(), _kperiod, _dperiod,
+                                    _slowing, _ma_method, _price_field, (ENUM_SIGNAL_LINE)_mode, _shift);
+    }
+    RUNTIME_ERROR("Stochastic requires a candle data source.");
+    return EMPTY_VALUE;
 #endif
+  }
+
+  /**
+   * Calculates Stochastic on OHLC arrays and caches raw %K, smoothed %K, and %D.
+   */
+  static double iStochasticOnArray(int rates_total, int prev_calculated, ValueStorage<double> &_open,
+                                   ValueStorage<double> &_high, ValueStorage<double> &_low,
+                                   ValueStorage<double> &_close, int _kperiod, int _dperiod, int _slowing,
+                                   ENUM_MA_METHOD _ma_method, ENUM_STO_PRICE _price_field, ENUM_SIGNAL_LINE _mode,
+                                   int _shift, IndiBufferCache<double> *_cache) {
+    if (_kperiod <= 0 || _dperiod <= 0 || _slowing <= 0 || rates_total <= 0) return EMPTY_VALUE;
+
+    _cache PTR_DEREF SetPriceBuffer(_open, _high, _low, _close, rates_total);
+    if (!_cache PTR_DEREF HasBuffers()) {
+      _cache PTR_DEREF AddBuffer<NativeValueStorage<double>>(3);
+    }
+
+    ValueStorage<double> &_raw_k = _cache PTR_DEREF GetBuffer<double>(0);
+    ValueStorage<double> &_main = _cache PTR_DEREF GetBuffer<double>(1);
+    ValueStorage<double> &_signal = _cache PTR_DEREF GetBuffer<double>(2);
+    const int _begin = _kperiod - 1;
+    const int _raw_start = prev_calculated == 0 || prev_calculated - 1 < _begin ? _begin : prev_calculated - 1;
+
+    for (int i = _raw_start; i < rates_total && !IsStopped(); ++i) {
+      double _highest = -DBL_MAX;
+      double _lowest = DBL_MAX;
+      const int _window_start = i - _kperiod + 1;
+      for (int j = _window_start; j <= i; ++j) {
+        const double _high_value = _price_field == STO_LOWHIGH ? _high[j].Get() : _close[j].Get();
+        const double _low_value = _price_field == STO_LOWHIGH ? _low[j].Get() : _close[j].Get();
+        _highest = fmax(_highest, _high_value);
+        _lowest = fmin(_lowest, _low_value);
+      }
+      const double _close_value = _close[i].Get();
+      _raw_k[i] = _highest == _lowest ? 0.0 : 100.0 * (_close_value - _lowest) / (_highest - _lowest);
+    }
+
+    const int _prev = _cache PTR_DEREF GetPrevCalculated();
+    Indi_MA::Calculate(rates_total, _prev, _begin, _raw_k, _main, _ma_method, _slowing);
+    const int _main_begin = _begin + _slowing - 1;
+    Indi_MA::Calculate(rates_total, _prev, _main_begin, _main, _signal, _ma_method, _dperiod);
+    _cache PTR_DEREF SetPrevCalculated(rates_total);
+
+    if (_mode == LINE_MAIN) return _cache PTR_DEREF GetTailValue<double>(1, _shift);
+    if (_mode == LINE_SIGNAL) return _cache PTR_DEREF GetTailValue<double>(2, _shift);
+    return EMPTY_VALUE;
+  }
+
+  /** Calculates Stochastic using cached OHLC buffers from the source candle. */
+  static double iStochasticOnIndicator(Indi_Stochastic *_target, IndicatorData *_source, int _kperiod, int _dperiod,
+                                       int _slowing, ENUM_MA_METHOD _ma_method, ENUM_STO_PRICE _price_field,
+                                       ENUM_SIGNAL_LINE _mode, int _shift) {
+    if (_source == NULL) return EMPTY_VALUE;
+    ValueStorage<double> *_open = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_OPEN);
+    ValueStorage<double> *_high = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_HIGH);
+    ValueStorage<double> *_low = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_LOW);
+    ValueStorage<double> *_close = (ValueStorage<double> *)_source PTR_DEREF
+        GetSpecificValueStorage(INDI_DATA_VS_TYPE_PRICE_CLOSE);
+    IndiBufferCache<double> *_cache = _target PTR_DEREF GetCache();
+
+    return iStochasticOnArray(_open PTR_DEREF Size(), _cache PTR_DEREF GetPrevCalculated(), PTR_TO_REF(_open),
+                              PTR_TO_REF(_high), PTR_TO_REF(_low), PTR_TO_REF(_close), _kperiod, _dperiod, _slowing,
+                              _ma_method, _price_field, _mode, _shift, _cache);
   }
 
   /**
    * Returns the indicator's value.
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = LINE_MAIN, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = LINE_MAIN, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
         _value = Indi_Stochastic::iStochastic(GetSymbol(), GetTf(), GetKPeriod(), GetDPeriod(), GetSlowing(),
                                               GetMAMethod(), GetPriceField(), _mode, ToRelShift(_abs_shift), THIS_PTR);
+        break;
+      case IDATA_INDICATOR:
+        _value = Indi_Stochastic::iStochasticOnIndicator(THIS_PTR, GetCandle(), GetKPeriod(), GetDPeriod(),
+                                                        GetSlowing(), GetMAMethod(), GetPriceField(),
+                                                        (ENUM_SIGNAL_LINE)_mode, ToRelShift(_abs_shift));
         break;
       case IDATA_ICUSTOM:
         _value = iCustom(istate.handle, GetSymbol(), GetTf(), iparams.GetCustomIndicatorName(), /*[*/ GetKPeriod(),
@@ -148,7 +228,7 @@ class Indi_Stochastic : public Indicator<IndiStochParams> {
   /**
    * Checks if indicator entry values are valid.
    */
-  virtual bool IsValidEntry(IndicatorDataEntry &_entry) { return _entry.IsWithinRange<double>(0, 101); }
+  virtual bool IsValidEntry(IndicatorDataEntry &_entry) override { return _entry.IsWithinRange<double>(0, 101); }
 
   /* Getters */
 
@@ -220,6 +300,8 @@ class Indi_Stochastic : public Indicator<IndiStochParams> {
   }
 };
 
+#undef INDI_STOCHASTIC_DEFAULT_SOURCE_MODE
+
 #ifndef __MQL4__
 // Defines global functions (for MQL4 backward compability).
 double iStochastic(string _symbol, int _tf, int _kperiod, int _dperiod, int _slowing, int _ma_method, int _pf,
@@ -228,4 +310,40 @@ double iStochastic(string _symbol, int _tf, int _kperiod, int _dperiod, int _slo
   return Indi_Stochastic::iStochastic(_symbol, (ENUM_TIMEFRAMES)_tf, _kperiod, _dperiod, _slowing,
                                       (ENUM_MA_METHOD)_ma_method, (ENUM_STO_PRICE)_pf, _mode, _shift);
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(ENUM_STO_PRICE) {
+  emscripten::enum_<ENUM_STO_PRICE>("sto_prices")
+      .value("LOWHIGH", STO_LOWHIGH)
+      .value("CLOSECLOSE", STO_CLOSECLOSE);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Stochastic_Params) {
+  emscripten::value_object<IndiStochParams>("indicators.StochasticParams")
+      .field("kperiod", &IndiStochParams::kperiod)
+      .field("dperiod", &IndiStochParams::dperiod)
+      .field("slowing", &IndiStochParams::slowing)
+      .field("ma_method", &IndiStochParams::ma_method)
+      .field("price_field", &IndiStochParams::price_field)
+      .field("shift", &IndiStochParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_StochasticBase) {
+  emscripten::class_<Indicator<IndiStochParams>, emscripten::base<IndicatorData>>("Indi_StochasticBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Stochastic) {
+  emscripten::class_<Indi_Stochastic, emscripten::base<Indicator<IndiStochParams>>>("indicators.Stochastic")
+      .smart_ptr<Ref<Indi_Stochastic>>("Ref<Indi_Stochastic>")
+      .constructor(&make_ref<Indi_Stochastic, IndiStochParams &>)
+      .constructor(&make_ref<Indi_Stochastic, IndiStochParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_Stochastic, IndiStochParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_Stochastic, IndiStochParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
 #endif

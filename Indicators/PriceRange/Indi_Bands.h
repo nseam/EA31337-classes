@@ -58,7 +58,11 @@ struct IndiBandsParams : IndicatorParams {
   // Struct constructors.
   IndiBandsParams(unsigned int _period = 20, double _deviation = 2, int _bshift = 0,
                   ENUM_APPLIED_PRICE _ap = PRICE_OPEN, int _shift = 0)
-      : period(_period), deviation(_deviation), bshift(_bshift), applied_price(_ap), IndicatorParams(INDI_BANDS) {
+      : IndicatorParams(INDI_BANDS),
+        period(_period),
+        deviation(_deviation),
+        bshift(_bshift),
+        applied_price(_ap) {
     shift = _shift;
     SetCustomIndicatorName("Examples\\BB");
   };
@@ -207,7 +211,7 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
     } else
       ExtBandsDeviations = _InpBandsDeviations;
 
-    if (rates_total < ExtPlotBegin) return (0);
+    if (rates_total < ExtBandsPeriod + begin) return (0);
     //--- indexes draw begin settings, when we've recieved previous begin
     if (ExtPlotBegin != ExtBandsPeriod + begin) {
       ExtPlotBegin = ExtBandsPeriod + begin;
@@ -220,7 +224,7 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
     if (prev_calculated > 1)
       pos = prev_calculated - 1;
     else
-      pos = 0;
+      pos = ExtBandsPeriod + begin - 1;
     //--- main cycle
     for (int i = pos; i < rates_total && !IsStopped(); i++) {
       //--- middle line
@@ -240,7 +244,7 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
                             const int period) {
     double std_dev = 0.0;
     //--- calcualte StdDev
-    if (position >= period) {
+    if (position >= period - 1) {
       for (int i = 0; i < period; i++) std_dev += MathPow(price[position - i] - ma_price[position], 2.0);
       std_dev = MathSqrt(std_dev / period);
     }
@@ -264,7 +268,7 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
    * Note that in MQL5 Applied Price must be passed as the last parameter
    * (before mode and shift).
    */
-  virtual IndicatorDataEntryValue GetEntryValue(int _mode = BAND_BASE, int _abs_shift = 0) {
+  virtual IndicatorDataEntryValue GetEntryValue(int _mode = BAND_BASE, int _abs_shift = 0) override {
     double _value = EMPTY_VALUE;
     switch (Get<ENUM_IDATA_SOURCE_TYPE>(STRUCT_ENUM(IndicatorDataParams, IDATA_PARAM_IDSTYPE))) {
       case IDATA_BUILTIN:
@@ -281,6 +285,9 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
         _value = iCustom(istate.handle, GetSymbol(), GetTf(), iparams.custom_indi_name, /* [ */ GetPeriod(),
                          GetBandsShift(), GetDeviation(), GetAppliedPrice() /* ] */, _mode, ToRelShift(_abs_shift));
         break;
+      default:
+        SetUserError(ERR_INVALID_PARAMETER);
+        break;
     }
     return _value;
   }
@@ -288,7 +295,7 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
   /**
    * Checks if indicator entry values are valid.
    */
-  virtual bool IsValidEntry(IndicatorDataEntry &_entry) {
+  virtual bool IsValidEntry(IndicatorDataEntry &_entry) override {
     return !_entry.HasValue((double)NULL) && !_entry.HasValue(EMPTY_VALUE) && _entry.IsGt<double>(0) &&
            _entry.values[(int)BAND_LOWER].GetDbl() < _entry.values[(int)BAND_UPPER].GetDbl();
   }
@@ -296,7 +303,7 @@ class Indi_Bands : public Indicator<IndiBandsParams> {
   /**
    * Provides built-in indicators whose can be used as data source.
    */
-  virtual IndicatorData *FetchDataSource(ENUM_INDICATOR_TYPE _id) {
+  virtual IndicatorData *FetchDataSource(ENUM_INDICATOR_TYPE _id) override {
     IndicatorData *_result = NULL;
     if (_id == INDI_BANDS) {
       IndiBandsParams bands_params;
@@ -394,4 +401,33 @@ double iBands(string _symbol, int _tf, int _period, double _deviation, int _band
   return Indi_Bands::iBands(_symbol, (ENUM_TIMEFRAMES)_tf, _period, _deviation, _bands_shift, (ENUM_APPLIED_PRICE)_ap,
                             (ENUM_BANDS_LINE)_mode, _shift);
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/bind.h>
+
+EMSCRIPTEN_BINDINGS(Indi_Bands_Params) {
+  emscripten::value_object<IndiBandsParams>("indicators.BandsParams")
+      .field("period", &IndiBandsParams::period)
+      .field("deviation", &IndiBandsParams::deviation)
+      .field("bshift", &IndiBandsParams::bshift)
+      .field("applied_price", &IndiBandsParams::applied_price)
+      .field("shift", &IndiBandsParams::shift);
+}
+
+EMSCRIPTEN_BINDINGS(Indi_BandsBase) {
+  emscripten::class_<Indicator<IndiBandsParams>, emscripten::base<IndicatorData>>("Indi_BandsBase");
+}
+
+EMSCRIPTEN_BINDINGS(Indi_Bands) {
+  emscripten::class_<Indi_Bands, emscripten::base<Indicator<IndiBandsParams>>>("indicators.Bands")
+      .smart_ptr<Ref<Indi_Bands>>("Ref<Indi_Bands>")
+      .constructor(&make_ref<Indi_Bands, IndiBandsParams &>)
+      .constructor(&make_ref<Indi_Bands, IndiBandsParams &, ENUM_IDATA_SOURCE_TYPE>)
+      .constructor(&make_ref<Indi_Bands, IndiBandsParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>())
+      .constructor(&make_ref<Indi_Bands, IndiBandsParams &, ENUM_IDATA_SOURCE_TYPE, IndicatorData *, int>,
+                   emscripten::allow_raw_pointer<emscripten::arg<2>>());
+}
+
 #endif
