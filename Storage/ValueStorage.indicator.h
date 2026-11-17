@@ -73,10 +73,11 @@ class IndicatorBufferValueStorage : public HistoryValueStorage<C> {
 template <typename C>
 C IndicatorBufferValueStorage<C>::Fetch(int _rel_shift) {
   IndicatorBase* _indi = THIS_ATTR indi_candle.Ptr();
-  // GetValue() already uses descending shift semantics (0 = newest bar).
-  // Do NOT call RealShift() here — that would convert to ascending order
-  // which GetValue/GetItemByShift would then misinterpret, always resolving
-  // to the oldest bars instead of the requested ones.
-  return _indi PTR_DEREF template GetValue<C>(mode, _rel_shift);
+  // GetValue() uses descending shift semantics (0 = newest bar), while this storage may be
+  // addressed in ascending order (index 0 = oldest bar) when ArraySetAsSeries(..., false) was
+  // applied to it. RealShift() performs that conversion and is a no-op in as-series mode, so it
+  // must be applied here. Skipping it makes every OnCalculate()-based indicator (e.g. MA) read
+  // the price buffer backwards, which mirrors its output around the middle of the chart.
+  return _indi PTR_DEREF template GetValue<C>(mode, THIS_ATTR RealShift(_rel_shift));
 }
 #endif

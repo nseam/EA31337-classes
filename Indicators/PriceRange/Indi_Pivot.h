@@ -63,14 +63,14 @@ class Indi_Pivot : public Indicator<IndiPivotParams> {
    */
   Indi_Pivot(IndiPivotParams& _p, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_INDICATOR, IndicatorData* _indi_src = NULL,
              int _indi_src_mode = 0)
-      : Indicator(_p, IndicatorDataParams::GetInstance(9, TYPE_DOUBLE, _idstype, IDATA_RANGE_MIXED, _indi_src_mode),
+      : Indicator(_p, IndicatorDataParams::GetInstance(9, TYPE_DOUBLE, _idstype, IDATA_RANGE_PRICE, _indi_src_mode),
                   _indi_src) {
     Init();
   };
   Indi_Pivot(int _shift = 0, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_INDICATOR, IndicatorData* _indi_src = NULL,
              int _indi_src_mode = 0)
       : Indicator(IndiPivotParams(),
-                  IndicatorDataParams::GetInstance(9, TYPE_DOUBLE, _idstype, IDATA_RANGE_MIXED, _indi_src_mode),
+                  IndicatorDataParams::GetInstance(9, TYPE_DOUBLE, _idstype, IDATA_RANGE_PRICE, _indi_src_mode),
                   _indi_src) {
     Init();
   }

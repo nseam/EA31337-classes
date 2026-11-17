@@ -381,46 +381,38 @@ class Tester {
   /**
    * Helper function for feeding given tick provider with some random ticks.
    **/
-  // Generates a single random TickTAB<double> for a given time.
-  static TickTAB<double> RandomizeTick(int64 time_ms) {
-    // Use a random walk to produce smooth, continuously changing prices.
-    // Static accumulators persist across calls so each tick builds on the previous one,
-    // avoiding the repeating discrete values caused by absolute-time sine evaluation.
-    static double _ask  = 1.0;  // starting price
-    static double _bid  = 1.2;  // starting bid (spread = 0.2)
-    static int    _step = 0;    // tick step counter for slight bias drift
+  // Generates a single random TickTAB<double> for a given time. _price is the walk's mid price, updated in place.
+  // When _hold is set the price stays put, so the tick repeats the previous one.
+  static TickTAB<double> RandomizeTick(int64 time_ms, double &_price, int _step, bool _hold = false) {
+    const double _noise_scale = 0.0002;  // Max move per tick (~2 pips).
+    const double _spread      = 0.0002;  // Fixed 2 pips spread.
 
-    // Small random increments scaled to produce visible but smooth movements.
-    // Each tick changes price by roughly +/-0.01 (plus/minus 1 pip on a 1.0 price).
-    const double _noise_scale = 0.04;
-    const double _spread      = 0.2;
-
-    // Add random noise to the current price (random walk).
-    _ask = _ask + (_noise_scale * (drand48() - 0.5));
-    _bid = _ask + _spread;
-
-    // Very slight mean-reverting drift back toward 1.0 every ~60 ticks
-    // to prevent the random walk from drifting too far over time.
-    _step++;
-    if (_step % 60 == 0) {
-      const double _drift = (1.0 - _ask) * 0.05;
-      _ask += _drift;
-      _bid = _ask + _spread;
+    if (!_hold) {
+      _price += _noise_scale * (drand48() - 0.5);
     }
 
-    // Print("Randomized tick: time_ms=", time_ms, ", ask=", _ask, ", bid=", _bid);
-    return TickTAB<double>(time_ms, _ask, _bid);
+    // Mean-reverting drift back toward 1.1 every ~60 ticks keeps the walk bounded.
+    if (_step % 60 == 0) {
+      _price += (1.1 - _price) * 0.05;
+    }
+
+    // Ask is above bid.
+    return TickTAB<double>(time_ms, _price + _spread / 2, _price - _spread / 2);
   }
 
-  static void FeedTickProvider(Ref<Indi_TickProvider> _tick_provider) {
+  static void FeedTickProvider(Ref<Indi_TickProvider> _tick_provider, int _num_ticks = 10000) {
     Print("Feeding Tick Provider with random values...");
     ARRAY(TickTAB<double>, _ticks);
 
     // We start at 2000-01-01, but it doesn't matter. We just need to have increasing time for each tick.
     int64 _dt = 946684800;
-    for (int i = 0; i < 1200; ++i) {
+    // Every feed starts its own walk, so the first bar's open doesn't depend on previous runs.
+    double _price = 1.1;
+    // One tick per 20 sec, so a M1 bar holds 3 ticks. The first tick of a bar repeats the previous
+    // bar's last price, so every bar opens at the previous close.
+    for (int i = 0; i < _num_ticks; ++i) {
       int64 time_ms = (_dt + i * 20) * 1000;
-      ArrayPush(_ticks, RandomizeTick(time_ms));
+      ArrayPush(_ticks, RandomizeTick(time_ms, _price, i + 1, i > 0 && i % 3 == 0));
     }
     _tick_provider REF_DEREF Feed(_ticks);
     Print("Given Tick Provider has now ", _tick_provider REF_DEREF BufferSize(), " random values.");

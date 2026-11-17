@@ -41,7 +41,7 @@ struct IndiEnvelopesParams : IndicatorParams {
   double deviation;
   // Struct constructors.
   IndiEnvelopesParams(int _ma_period = 13, int _ma_shift = 0, ENUM_MA_METHOD _ma_method = MODE_SMA,
-                      ENUM_APPLIED_PRICE _ap = PRICE_OPEN, double _deviation = 2, int _shift = 0)
+                      ENUM_APPLIED_PRICE _ap = PRICE_OPEN, double _deviation = 0.05, int _shift = 0)
       : IndicatorParams(INDI_ENVELOPES),
         ma_period(_ma_period),
         ma_shift(_ma_shift),
@@ -170,7 +170,7 @@ class Indi_Envelopes : public Indicator<IndiEnvelopesParams> {
                                   IndiBufferCache<double> *_cache = NULL) {
     // We need 1 bar more because MA methods assumes we have historic bars.
     if (_price PTR_DEREF Size() < _shift + _ma_shift + _ma_period + 1) {
-      return DBL_MIN;
+      return EMPTY_VALUE;
     }
 
     ARRAY(double, _indi_value_buffer);
@@ -184,10 +184,10 @@ class Indi_Envelopes : public Indicator<IndiEnvelopesParams> {
 
     switch (_mode) {
       case LINE_UPPER:
-        _result *= (1.0 + _deviation / 100);
+        _result *= (1.0 + _deviation);
         break;
       case LINE_LOWER:
-        _result *= (1.0 - _deviation / 100);
+        _result *= (1.0 - _deviation);
         break;
 #ifdef __MQL4__
       case LINE_MAIN:
@@ -196,7 +196,7 @@ class Indi_Envelopes : public Indicator<IndiEnvelopesParams> {
         break;
 #endif
       default:
-        _result = DBL_MIN;
+        _result = EMPTY_VALUE;
     }
 
     return _result;

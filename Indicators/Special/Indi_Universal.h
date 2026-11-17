@@ -116,6 +116,46 @@ class Indi_Universal : public Indicator<IndiUniversalParams> {
    * Whether we can and have to select mode when specifying data source.
    */
   virtual bool IsDataSourceModeSelectable() override { return false; }
+
+  /**
+   * Returns the value range of the indicator.
+   *
+   * Universal is a pass-through indicator: it exposes a single mode of its data source, so its
+   * values mean exactly the same as the source's values. Reporting a fixed IDATA_RANGE_MIXED made
+   * consumers (e.g. the chart) treat a price source as a 0..100 oscillator, which collapsed the
+   * line into a flat horizontal one.
+   */
+  ENUM_IDATA_VALUE_RANGE GetValueRange() override {
+    IndicatorData *_ds = GetDataSourceRaw();
+
+    if (_ds == nullptr) {
+      _ds = GetDataSource(false);
+    }
+
+    if (_ds == nullptr) {
+      return Indicator<IndiUniversalParams>::GetValueRange();
+    }
+
+    // A candle indicator reports IDATA_RANGE_UNKNOWN because its modes are heterogeneous: the
+    // price modes are prices, while spread, volume and time are not. Since Universal exposes just
+    // one of those modes, derive the range from the mode it passes through.
+    if (_ds PTR_DEREF IsCandleIndicator()) {
+      switch (iparams.mode_1) {
+        case INDI_CANDLE_MODE_PRICE_OPEN:
+        case INDI_CANDLE_MODE_PRICE_HIGH:
+        case INDI_CANDLE_MODE_PRICE_LOW:
+        case INDI_CANDLE_MODE_PRICE_CLOSE:
+        case INDI_CANDLE_MODE_PRICE_MEDIAN:
+        case INDI_CANDLE_MODE_PRICE_TYPICAL:
+        case INDI_CANDLE_MODE_PRICE_WEIGHTED:
+          return IDATA_RANGE_PRICE;
+        default:
+          return IDATA_RANGE_MIXED;
+      }
+    }
+
+    return _ds PTR_DEREF GetValueRange();
+  }
 };
 
 #ifdef __EMSCRIPTEN__

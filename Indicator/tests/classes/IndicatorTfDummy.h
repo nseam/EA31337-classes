@@ -101,7 +101,7 @@ EMSCRIPTEN_BINDINGS(IndicatorTfDummyBase) {
 EMSCRIPTEN_BINDINGS(IndicatorTfDummy) {
   emscripten::class_<IndicatorTfDummy, emscripten::base<IndicatorTf<IndicatorTfDummyParams>>>("indicators.Tf")
       .smart_ptr<Ref<IndicatorTfDummy>>("Ref<IndicatorTfDummy>")
-      .constructor<ENUM_TIMEFRAMES>();
+      .constructor(&make_ref<IndicatorTfDummy, ENUM_TIMEFRAMES>);
 }
 
 #endif
