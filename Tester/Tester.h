@@ -104,6 +104,13 @@ class Tester {
   static void Add(IndicatorData *_indi) { Platform::Add(_indi); }
 
   /**
+   * Checks whether the given indicator may be used as a data source of another indicator.
+   */
+  static bool OnCheckIfSuitableDataSource(IndicatorData *_indi, IndicatorData *_ds) {
+    return _indi != nullptr && _ds != nullptr && _indi PTR_DEREF OnCheckIfSuitableDataSource(_ds);
+  }
+
+  /**
    * Adds indicator using given symbol and timeframe. Uses default Tf and Tick
    * indicator for current platform. Under C++/Emscripten default Tick
    * indicator is TickProvider. Note that you must feed TickProvider for each
@@ -564,6 +571,8 @@ EMSCRIPTEN_BINDINGS(Tester) {
       .class_function("Init", &Tester::Init)
       .class_function("Reset", &Tester::Reset)
       .class_function("Add", &Tester::Add, emscripten::allow_raw_pointer<emscripten::arg<0>>())
+      .class_function("OnCheckIfSuitableDataSource", &Tester::OnCheckIfSuitableDataSource,
+                      emscripten::allow_raw_pointers())
       .class_function("AddPlatformWise", &Tester::AddPlatformWise)
       .class_function("RunAllTicks", &Tester::RunAllTicks)
       .class_function("RunTick", &Tester::RunTick)
